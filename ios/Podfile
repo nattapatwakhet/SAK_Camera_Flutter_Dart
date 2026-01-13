@@ -1,0 +1,153 @@
+platform :ios, '15.0' # package (camera, image_picker, gallery_saver_plus, video_player, connectivity_plus, flutter_inappwebview, url_launcher, google_maps_flutter, flutter_local_notifications, gal, photo_manager)
+
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+# package (file_picker)
+# Pod::PICKER_MEDIA = false
+# Pod::PICKER_AUDIO = false
+# Pod::PICKER_DOCUMENT = false
+# package (file_picker)
+
+target 'Runner' do
+  # package (flutter_inappwebview app_settings file_picker)
+  use_frameworks!
+  # package (flutter_inappwebview app_settings file_picker)
+
+  # fluttter version >= 3.10
+  use_modular_headers!
+  # fluttter version >= 3.10
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  # fluttter version >= 3.10
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+  # fluttter version >= 3.10
+end
+
+post_install do |installer|
+  # support target package set verson ios
+  installer.pods_project.build_configurations.each do |config|
+    # config.build_settings["EXCLUDED_ARCHS[sdk=*]"] = "armv7"
+    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
+  # support target package set verson ios
+  # set run xcode >= 15
+  installer.aggregate_targets.each do |target|
+    target.xcconfigs.each do |variant, xcconfig|
+      xcconfig_path = target.client_root + target.xcconfig_relative_path(variant)
+      IO.write(xcconfig_path, IO.read(xcconfig_path).gsub("DT_TOOLCHAIN_DIR", "TOOLCHAIN_DIR"))
+    end
+  end
+  # set run xcode >= 15
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # support target package set verson ios
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        end
+        if Gem::Version.new($iOSVersion) > Gem::Version.new(config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'])
+          if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+          end
+        end
+      # support target package set verson ios
+      # set run xcode >= 15
+        if config.base_configuration_reference.is_a? Xcodeproj::Project::Object::PBXFileReference
+          xcconfig_path = config.base_configuration_reference.real_path
+          IO.write(xcconfig_path, IO.read(xcconfig_path).gsub("DT_TOOLCHAIN_DIR", "TOOLCHAIN_DIR"))
+        end
+      # set run xcode >= 15
+      # set permission # package (permission_handler)
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+        'PERMISSION_LOCATION=1',
+        'PERMISSION_LOCATION_WHENINUSE=1',
+        'PERMISSION_ACCESS_MEDIA_LOCATION=1',
+        'PERMISSION_PHOTOS=1',
+        'PERMISSION_STORAGE=1',
+        'PERMISSION_MANAGE_EXTERNAL_STORAGE=1',
+      ]
+      # set permission # package (permission_handler)
+    end
+    # package (flutter_inappwebview)
+    # target.build_configurations.each do |config|
+    #   config.build_settings['SWIFT_VERSION'] = '5.0'
+    #   config.build_settings['ENABLE_BITCODE'] = 'NO'
+    # end
+    # package (flutter_inappwebview)
+    # support un suport - g
+    # if target.name == 'BoringSSL-GRPC'
+    #   target.source_build_phase.files.each do |file|
+    #     if file.settings && file.settings['COMPILER_FLAGS']
+    #       flags = file.settings['COMPILER_FLAGS'].split
+    #       flags.reject! { |flag| flag == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+    #       file.settings['COMPILER_FLAGS'] = flags.join(' ')
+    #     end
+    #   end
+    # end
+    # support un suport - g
+  end
+end
+
+# set run xcode >= 15
+# post_integrate do |installer|
+#   compiler_flags_key = 'COMPILER_FLAGS'
+#   project_path = 'Pods/Pods.xcodeproj'
+
+#   project = Xcodeproj::Project.open(project_path)
+#   project.targets.each do |target|
+#     target.build_phases.each do |build_phase|
+#       if build_phase.is_a?(Xcodeproj::Project::Object::PBXSourcesBuildPhase)
+#         build_phase.files.each do |file|
+#           if !file.settings.nil? && file.settings.key?(compiler_flags_key)
+#             compiler_flags = file.settings[compiler_flags_key]
+#             file.settings[compiler_flags_key] = compiler_flags.gsub(/-DOS_OBJECT_USE_OBJC=0\s*/, '')
+#           end
+#         end
+#       end
+#     end
+#   end
+#   project.save()
+# end
+# set run xcode >= 15
+
+# package (awesome_notifications_fcm)
+# awesome_fcm_pod_file = File.expand_path(File.join('plugins', 'awesome_notifications_fcm', 'ios', 'Scripts', 'AwesomeFcmPodFile'), '.symlinks')
+# require awesome_fcm_pod_file
+# target 'AwesomeServiceExtension' do
+#   use_frameworks!
+#   use_modular_headers!
+#   install_awesome_fcm_ios_pod_target File.dirname(File.realpath(__FILE__))
+# end
+# update_awesome_fcm_service_target('AwesomeServiceExtension', File.dirname(File.realpath(__FILE__)), flutter_root)
+# package (awesome_notifications_fcm)
