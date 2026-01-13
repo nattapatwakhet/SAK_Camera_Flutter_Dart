@@ -5,15 +5,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
+import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/state/camera/camera_controller.dart';
+import 'package:sakcamera_getx/state/camera/gallery_controller.dart';
+import 'package:sakcamera_getx/state/camera/map_controller.dart';
+import 'package:sakcamera_getx/util/main_util.dart';
 import 'package:sakcamera_getx/util/write_focus_util.dart';
 
 class Camera extends GetWidget<CameraPageController> {
   final usercontroller = Get.find<UserController>();
+  final mapcontroller = Get.find<MapController>();
   Camera({super.key});
 
   @override
@@ -38,7 +45,7 @@ class Camera extends GetWidget<CameraPageController> {
             },
             behavior: HitTestBehavior.opaque,
             child: Stack(
-              alignment: AlignmentDirectional.center,
+              alignment: Alignment.center,
               children: [
                 Column(
                   children: [
@@ -59,6 +66,9 @@ class Camera extends GetWidget<CameraPageController> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       controller.lastconstraints.value = constraints;
+
+                      controller.layoutReady =
+                          constraints.maxWidth > 0 && constraints.maxHeight > 0;
 
                       if (kDebugMode) {
                         print('=== LayoutBuilder Constraints ===');
@@ -91,35 +101,61 @@ class Camera extends GetWidget<CameraPageController> {
                               mainAxisSize: MainAxisSize.max,
                               children: [
                                 Expanded(
-                                  flex: 10,
-                                  child: Stack(
-                                    children: [
-                                      SizedBox(
-                                        width: constraints.maxWidth,
-                                        height: constraints.maxHeight,
-                                        child: buildWidgetCameraPreview(context, constraints),
+                                  flex: 9,
+                                  child: Center(
+                                    child: AspectRatio(
+                                      aspectRatio: 3 / 4,
+                                      child: LayoutBuilder(
+                                        builder: (context, box) {
+                                          // box = preview จริง 100%
+                                          controller.previewsize.value = Size(
+                                            box.maxWidth,
+                                            box.maxHeight,
+                                          );
+
+                                          return Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              // SizedBox(
+                                              //   width: constraints.maxWidth,
+                                              //   height: constraints.maxHeight,
+                                              //   child: buildWidgetCameraPreview(
+                                              //     context,
+                                              //     constraints,
+                                              //   ),
+                                              // ),
+                                              buildWidgetCameraPreview(context, box),
+
+                                              /// ===== Shutter Effect =====
+                                              Obx(() {
+                                                if (!controller.shuttereffect.value) {
+                                                  return const SizedBox.shrink();
+                                                }
+
+                                                return Positioned.fill(
+                                                  child: Container(
+                                                    color: MainConstant.black.withValues(
+                                                      alpha: 0.6,
+                                                    ),
+                                                  ),
+                                                );
+                                              }),
+
+                                              buildWidgetLogo(context, constraints),
+                                              buildMiniMapGoogle(context, constraints),
+                                              widgetInfoText(context, constraints),
+                                              buildWidgetCameraFlashButtons(context, constraints),
+                                              buildWidgetCameraSwitchButtons(context, constraints),
+                                              buildWidgetCameraMarkerButtons(context, constraints),
+                                            ],
+                                          );
+                                        },
                                       ),
-
-                                      /// ===== Shutter Effect =====
-                                      Obx(() {
-                                        return controller.shuttereffect.value
-                                            ? Positioned.fill(
-                                                child: Container(
-                                                  color: MainConstant.transparent.withAlpha(200),
-                                                ),
-                                              )
-                                            : const SizedBox.shrink();
-                                      }),
-
-                                      buildWidgetLogo(context, constraints),
-                                      buildWidgetCameraFlashButtons(context, constraints),
-                                      buildWidgetCameraSwitchButtons(context, constraints),
-                                      buildWidgetCameraMarkerButtons(context, constraints),
-                                    ],
+                                    ),
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 1,
+                                  flex: 3,
                                   child: Container(
                                     color: MainConstant.transparent,
                                     child: Row(
@@ -149,9 +185,6 @@ class Camera extends GetWidget<CameraPageController> {
                                         //       },
                                         //       child: Text('Logout'),
                                         //     ),
-                                        //     // buildGalleryButton(),
-                                        //     // buildTakePictureButton(),
-                                        //     // buildSettingButton(),
                                         //   ],
                                         // ),
                                         buildGalleryButton(context, constraints),
@@ -161,10 +194,10 @@ class Camera extends GetWidget<CameraPageController> {
                                     ),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 1,
-                                  child: Container(color: MainConstant.transparent),
-                                ),
+                                // Expanded(
+                                //   flex: 1,
+                                //   child: Container(color: MainConstant.red),
+                                // ),
                               ],
                             ),
                           ),
@@ -179,6 +212,210 @@ class Camera extends GetWidget<CameraPageController> {
         );
       },
     );
+  }
+
+  Widget widgetInfoText(BuildContext context, BoxConstraints constraints) {
+    return Obx(() {
+      //เช็คก่อนใช้ FutureBuilder
+      if (usercontroller.usermodel.value == null) {
+        return SizedBox.shrink(); // <<== ป้องกันการใช้งานก่อนถูก set
+      }
+
+      double angle;
+      double? xtop;
+      double? xbottom;
+      double? yleft;
+      double? yright;
+
+      switch (controller.rotationangle.value) {
+        case 1: // หมุนซ้าย (อุปกรณ์เอียงซ้าย)
+          angle = math.pi / 2;
+          xbottom = 5;
+          yleft = 5;
+          break;
+        case 3: // หมุนขวา (อุปกรณ์เอียงขวา)
+          angle = -math.pi / 2;
+          xtop = 5;
+          yright = 5;
+          break;
+        case 2: // กลับหัว
+          angle = math.pi;
+          xtop = 5;
+          yleft = 5;
+          break;
+        default: // แนวตั้ง
+          angle = 0.0;
+          xbottom = 5;
+          yright = 5;
+      }
+
+      return Positioned(
+        top: xtop,
+        bottom: xbottom,
+        right: yright,
+        left: yleft,
+        child: Transform.rotate(
+          angle: angle,
+          child: RepaintBoundary(
+            key: controller.infotextkey,
+            child: Container(
+              color: MainConstant.transparent,
+              width: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
+                  ? 220
+                  : 220,
+              height: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
+                  ? 120
+                  : 220,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  StreamBuilder(
+                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()),
+
+                    builder: (context, timesnapshot) {
+                      final datetimenow = timesnapshot.data ?? DateTime.now();
+                      final textyear = (int.parse(DateFormat('y', 'th').format(datetimenow)) + 543)
+                          .toString();
+                      final textdate = DateFormat(
+                        'EEEEที่ dd MMMM $textyear',
+                        'th',
+                      ).format(datetimenow);
+                      final texttime = DateFormat('เวลา HH:mm:ss น.', 'th').format(datetimenow);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: textdate,
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: texttime,
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: usercontroller.usermodel.value == null
+                                ? ''
+                                : usercontroller.usermodel.value!.workplace,
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: usercontroller.usermodel.value == null
+                                ? ''
+                                : '${usercontroller.usermodel.value!.belong} ${usercontroller.usermodel.value!.region}',
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: mapcontroller.currentlatlnggoogle.value != null
+                                ? 'พิกัด ${mapcontroller.currentlatlnggoogle.value!.latitude.toStringAsFixed(5)}, ${mapcontroller.currentlatlnggoogle.value!.longitude.toStringAsFixed(5)}'
+                                : 'ไม่พบพิกัด',
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          MainUtil.mainText(
+                            context,
+                            constraints,
+                            text: '${MainConstant.nameapp} เวอร์ชัน ${MainConstant.version}',
+                            textstyle: MainUtil.mainTextStyle(
+                              context,
+                              constraints,
+                              fontsize: MainConstant.h12,
+                              fontweight: MainConstant.boldfontweight,
+                              fontcolor: MainConstant.white,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 3,
+                                  color: MainConstant.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   //===>> AppBar <===//
@@ -263,128 +500,121 @@ class Camera extends GetWidget<CameraPageController> {
       );
     }
 
+    // constraints ตรงนี้ = preview 3/4 จริง
+    final w = constraints.maxWidth;
+    final h = constraints.maxHeight;
+
+    controller.previewsize.value = Size(w, h);
+
     // กล้องพร้อม แสดง CameraPreview
-    return Center(
-      child: AspectRatio(
-        aspectRatio: 3 / 4,
-        child: LayoutBuilder(
-          builder: (context, box) {
-            return Stack(
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTapDown: (TapDownDetails details) {
-                    final dx = details.localPosition.dx;
-                    final dy = details.localPosition.dy;
+    return Stack(
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
 
-                    final w = box.maxWidth;
-                    final h = box.maxHeight;
+          // ===== TAP TO FOCUS =====
+          onTapDown: (TapDownDetails details) {
+            final dx = details.localPosition.dx;
+            final dy = details.localPosition.dy;
 
-                    // แปลงเป็นสัดส่วน 0.0 - 1.0
-                    final fx = dx / w;
-                    final fy = dy / h;
+            // แปลงเป็นสัดส่วน 0.0 - 1.0
+            final fx = dx / w;
+            final fy = dy / h;
 
-                    // บันทึกตำแหน่งไว้ให้โชว์กรอบโฟกัส
-                    controller.focusoffset.value = Offset(dx, dy);
+            // บันทึกตำแหน่งไว้ให้โชว์กรอบโฟกัส
+            controller.focusoffset.value = Offset(dx, dy);
 
-                    // เรียกโฟกัส
-                    if (fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1) {
-                      controller.setFocusAndExposure(fx, fy);
-                    }
+            // เรียกโฟกัส
+            if (fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1) {
+              controller.setFocusAndExposure(fx, fy);
+            }
 
-                    // เริ่ม animation
-                    controller.focusopacity.value = 1;
-                    controller.focusscale.value = 1.0;
+            // เริ่ม animation
+            controller.focusopacity.value = 1;
+            controller.focusscale.value = 1.0;
 
-                    // Step 1: Zoom out (1.0 → 1.3)
-                    controller.focusscale.value = 1.3;
+            // Step 1: Zoom out (1.0 → 1.3)
+            controller.focusscale.value = 1.3;
 
-                    Future.delayed(const Duration(milliseconds: 120), () {
-                      // Step 2: Zoom back (1.3 → 1.0)
-                      controller.focusscale.value = 1.0;
-                    });
+            // Step 2: Zoom back (1.3 → 1.0)
+            Future.delayed(const Duration(milliseconds: 120), () {
+              controller.focusscale.value = 1.0;
+            });
 
-                    // fade ออกภายใน 800ms
-                    Future.delayed(const Duration(milliseconds: 1500), () {
-                      controller.focusopacity.value = 0;
+            // fade ออกภายใน 800ms
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              controller.focusopacity.value = 0;
 
-                      Future.delayed(const Duration(milliseconds: 200), () {
-                        controller.focusoffset.value = null;
-                      });
-                    });
-                  },
-
-                  // ZoomIn & ZoomOut
-                  onScaleStart: (details) {
-                    controller.basezoom = controller.zoomlevel.value;
-                  },
-
-                  onScaleUpdate: (details) async {
-                    if (details.scale == 1.0) {
-                      return;
-                    }
-
-                    double newzoom = controller.basezoom * details.scale;
-                    if (newzoom < controller.minzoom) newzoom = controller.minzoom;
-                    if (newzoom > controller.maxzoom) newzoom = controller.maxzoom;
-
-                    controller.zoomlevel.value = newzoom;
-                    await camera.setZoomLevel(newzoom);
-
-                    controller.showZoomIndicator();
-                  },
-
-                  // DOUBLE TAP ZOOM
-                  onDoubleTap: () async {
-                    double newzoom = controller.zoomlevel.value + 1;
-                    if (newzoom > controller.maxzoom) {
-                      newzoom = controller.minzoom; // รีเซ็ตเป็น 1x
-                    }
-                    controller.zoomlevel.value = newzoom;
-                    await camera.setZoomLevel(newzoom);
-
-                    controller.showZoomIndicator();
-                  },
-
-                  child: CameraPreview(camera),
-                ),
-
-                //แถบซูม
-                buidWidgetZoomBar(context),
-
-                Obx(() {
-                  final pos = controller.focusoffset.value;
-                  if (pos == null) return const SizedBox.shrink();
-
-                  const double size = 40;
-
-                  return Positioned(
-                    left: pos.dx - size / 2,
-                    top: pos.dy - size / 2,
-                    child: AnimatedScale(
-                      scale: controller.focusscale.value,
-                      duration: const Duration(milliseconds: 120),
-                      curve: Curves.easeOut,
-
-                      child: AnimatedOpacity(
-                        opacity: controller.focusopacity.value,
-                        duration: const Duration(milliseconds: 200),
-                        child: SizedBox(
-                          width: size,
-                          height: size,
-                          child: CustomPaint(
-                            painter: FocusReticlePainter(color: MainConstant.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            );
+              Future.delayed(const Duration(milliseconds: 200), () {
+                controller.focusoffset.value = null;
+              });
+            });
           },
+
+          // ===== PINCH ZOOM =====
+          onScaleStart: (details) {
+            controller.basezoom = controller.zoomlevel.value;
+          },
+
+          onScaleUpdate: (details) async {
+            if (details.scale == 1.0) return;
+
+            double newzoom = controller.basezoom * details.scale;
+            if (newzoom < controller.minzoom) newzoom = controller.minzoom;
+            if (newzoom > controller.maxzoom) newzoom = controller.maxzoom;
+
+            controller.zoomlevel.value = newzoom;
+            await camera.setZoomLevel(newzoom);
+
+            controller.showZoomIndicator();
+          },
+
+          // ===== DOUBLE TAP ZOOM =====
+          onDoubleTap: () async {
+            double newzoom = controller.zoomlevel.value + 1;
+            if (newzoom > controller.maxzoom) {
+              newzoom = controller.minzoom; // รีเซ็ตเป็น 1x
+            }
+
+            controller.zoomlevel.value = newzoom;
+            await camera.setZoomLevel(newzoom);
+
+            controller.showZoomIndicator();
+          },
+
+          child: CameraPreview(camera),
         ),
-      ),
+
+        // ===== ZOOM BAR =====
+        buidWidgetZoomBar(context),
+
+        // ===== FOCUS RETICLE =====
+        Obx(() {
+          final pos = controller.focusoffset.value;
+          if (pos == null) return const SizedBox.shrink();
+
+          const double size = 40;
+
+          return Positioned(
+            left: pos.dx - size / 2,
+            top: pos.dy - size / 2,
+            child: AnimatedScale(
+              scale: controller.focusscale.value,
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              child: AnimatedOpacity(
+                opacity: controller.focusopacity.value,
+                duration: const Duration(milliseconds: 200),
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: CustomPaint(painter: FocusReticlePainter(color: MainConstant.white)),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
   //===>> CameraPreview เรียกกล้องแสดงถ้าพร้อม <===//
@@ -400,7 +630,10 @@ class Camera extends GetWidget<CameraPageController> {
         return SizedBox.shrink(); // ไม่แสดงอะไร
       }
 
-      double angle;
+      final preview = controller.previewsize.value!;
+      const double logosize = 80;
+
+      double angle = 0;
 
       double? xtop;
       double? xbottom;
@@ -410,24 +643,25 @@ class Camera extends GetWidget<CameraPageController> {
       switch (controller.rotationangle.value) {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
-          xbottom = 75;
+          xbottom = 5;
           yright = 5;
           break;
         case 3: // หมุนขวา
           angle = -math.pi / 2;
-          xtop = 75;
+          xtop = 5;
           yleft = 5;
           break;
         case 2: // กลับหัว
           angle = math.pi;
-          xbottom = 75;
+          xbottom = 5;
           yleft = 5;
           break;
         default: // แนวตั้ง
           angle = 0.0;
-          xtop = 75;
+          xtop = 5;
           yright = 5;
       }
+
       return TweenAnimationBuilder(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -444,11 +678,134 @@ class Camera extends GetWidget<CameraPageController> {
           );
         },
 
-        child: Opacity(opacity: 0.85, child: Image.asset(MainConstant.saklogo, width: 80)),
+        child: Opacity(opacity: 0.85, child: Image.asset(MainConstant.saklogo, width: logosize)),
       );
+
+      // final layout = controller.getLogoLayout(controller.rotationangle.value);
+
+      // return TweenAnimationBuilder(
+      //   duration: const Duration(milliseconds: 300),
+      //   curve: Curves.easeInOut,
+      //   tween: Tween<double>(begin: layout.angle, end: layout.angle),
+      //   builder: (context, animAngle, child) {
+      //     return AnimatedPositioned(
+      //       duration: const Duration(milliseconds: 300),
+      //       curve: Curves.easeInOut,
+      //       top: layout.xtop == 0 ? null : layout.xtop,
+      //       bottom: layout.xbottom == 0 ? null : layout.xbottom,
+      //       left: layout.yleft == 0 ? null : layout.yleft,
+      //       right: layout.yright == 0 ? null : layout.yright,
+      //       child: Transform.rotate(angle: animAngle, child: child),
+      //     );
+      //   },
+      //   child: Opacity(opacity: 0.85, child: Image.asset(MainConstant.saklogo, width: logosize)),
+      // );
     });
   }
   //===>> Logo <===//
+
+  //===>> Map <===//
+  Widget buildMiniMapGoogle(BuildContext context, BoxConstraints constraints) {
+    final c = Get.find<MapController>();
+
+    return Obx(() {
+      final rotationangle = c.rotationangle.value;
+      final refreshmap = c.refreshmap.value;
+      final currentlatlng = c.currentlatlnggoogle.value;
+
+      double angle;
+      double? xtop;
+      double? xbottom;
+      double? yleft;
+      double? yright;
+
+      switch (rotationangle) {
+        case 1: // หมุนซ้าย
+          angle = math.pi / 2;
+          xtop = 0;
+          yleft = 0;
+          break;
+        case 3: // หมุนขวา
+          angle = -math.pi / 2;
+          xbottom = 0;
+          yright = 0;
+          break;
+        case 2: // กลับหัว
+          angle = math.pi;
+          xtop = 0;
+          yright = 0;
+          break;
+        default: // แนวตั้ง
+          angle = 0.0;
+          xbottom = 0;
+          yleft = 0;
+      }
+
+      return TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        tween: Tween<double>(end: angle),
+        builder: (context, animetionangle, child) {
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            top: xtop,
+            bottom: xbottom,
+            left: yleft,
+            right: yright,
+            child: Transform.rotate(angle: animetionangle, child: child),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(topRight: Radius.circular(10)),
+          child: Opacity(
+            opacity: 0.9,
+            child: (currentlatlng == null || refreshmap)
+                ? loadingMap()
+                : SizedBox(
+                    width: 105,
+                    height: 105,
+                    child: gm.GoogleMap(
+                      mapType: gm.MapType.satellite,
+                      initialCameraPosition: gm.CameraPosition(target: currentlatlng, zoom: 18),
+                      markers: c.googlemarker,
+
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      compassEnabled: false,
+                      mapToolbarEnabled: false,
+
+                      scrollGesturesEnabled: false,
+                      rotateGesturesEnabled: false,
+                      tiltGesturesEnabled: false,
+                      zoomGesturesEnabled: false,
+                      liteModeEnabled: false,
+                      minMaxZoomPreference: gm.MinMaxZoomPreference(18, 18),
+                      onMapCreated: c.onGoogleMapCreated,
+                    ),
+                  ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget loadingMap() {
+    return Container(
+      width: 105,
+      height: 105,
+      color: MainConstant.grey,
+      child: Center(
+        child: SizedBox(
+          width: 25,
+          height: 25,
+          child: LoadingAnimationWidget.hexagonDots(color: MainConstant.white, size: 35),
+        ),
+      ),
+    );
+  }
+  //===>> Map <===//
 
   //===>> Flash <===//
   Widget buildWidgetCameraFlashButtons(BuildContext context, BoxConstraints constraints) {
@@ -471,22 +828,22 @@ class Camera extends GetWidget<CameraPageController> {
       switch (controller.rotationangle.value) {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
-          xbottom = 70;
-          yright = 105;
+          xbottom = 0;
+          yright = 90;
           break;
         case 3: // หมุนขวา
           angle = -math.pi / 2;
-          xtop = 70;
-          yleft = 105;
+          xtop = 0;
+          yleft = 90;
           break;
         case 2: // กลับหัว
           angle = math.pi;
-          xbottom = 175;
+          xbottom = 90;
           yleft = 0;
           break;
         default: // แนวตั้ง
           angle = 0.0;
-          xtop = 175;
+          xtop = 90;
           yright = 0;
       }
 
@@ -575,32 +932,32 @@ class Camera extends GetWidget<CameraPageController> {
           angle = math.pi / 2;
           if (frontcamera) {
             // กล้องหน้า → เลื่อนขึ้นแทนตำแหน่งแฟลช
-            xbottom = 70;
-            yright = 105;
+            xbottom = 0;
+            yright = 90;
           } else {
-            xbottom = 70;
-            yright = 155;
+            xbottom = 0;
+            yright = 140;
           }
           break;
 
         case 3: // หมุนขวา
           angle = -math.pi / 2;
           if (frontcamera) {
-            xtop = 70;
-            yleft = 105;
+            xtop = 0;
+            yleft = 90;
           } else {
-            xtop = 70;
-            yleft = 155;
+            xtop = 0;
+            yleft = 140;
           }
           break;
 
         case 2: // กลับหัว
           angle = math.pi;
           if (frontcamera) {
-            xbottom = 175;
+            xbottom = 90;
             yleft = 0;
           } else {
-            xbottom = 225;
+            xbottom = 140;
             yleft = 0;
           }
           break;
@@ -608,10 +965,10 @@ class Camera extends GetWidget<CameraPageController> {
         default: //แนวตั้ง
           angle = 0.0;
           if (frontcamera) {
-            xtop = 175;
+            xtop = 90;
             yright = 0;
           } else {
-            xtop = 225;
+            xtop = 140;
             yright = 0;
           }
       }
@@ -697,40 +1054,40 @@ class Camera extends GetWidget<CameraPageController> {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
           if (frontcamera) {
-            xbottom = 70;
-            yright = 155;
+            xbottom = 0;
+            yright = 140;
           } else {
-            xbottom = 70;
-            yright = 205;
+            xbottom = 0;
+            yright = 190;
           }
           break;
         case 3: // หมุนขวา
           angle = -math.pi / 2;
           if (frontcamera) {
-            xtop = 70;
-            yleft = 155;
+            xtop = 0;
+            yleft = 140;
           } else {
-            xtop = 70;
-            yleft = 205;
+            xtop = 0;
+            yleft = 190;
           }
           break;
         case 2: // กลับหัว
           angle = math.pi;
           if (frontcamera) {
-            xbottom = 225;
+            xbottom = 140;
             yleft = 0;
           } else {
-            xbottom = 225;
+            xbottom = 190;
             yleft = 0;
           }
           break;
         default: // แนวตั้ง
           angle = 0.0;
           if (frontcamera) {
-            xtop = 225;
+            xtop = 140;
             yright = 0;
           } else {
-            xtop = 275;
+            xtop = 190;
             yright = 0;
           }
       }
@@ -758,7 +1115,9 @@ class Camera extends GetWidget<CameraPageController> {
             child: Column(
               children: [
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () async {
+                    await mapcontroller.refreshGoogleMap(debug: kDebugMode);
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: MainConstant.transparent,
                     shadowColor: MainConstant.transparent,
@@ -777,8 +1136,8 @@ class Camera extends GetWidget<CameraPageController> {
   }
   //===>> Marker <===//
 
-//===>> Zoombar <===//
-   Widget buidWidgetZoomBar(BuildContext context) {
+  //===>> Zoombar <===//
+  Widget buidWidgetZoomBar(BuildContext context) {
     return Obx(() {
       // กล้องยังโหลดไม่เสร็จไม่ต้อง render position อะไรทั้งนั้น
       if (!controller.statuscamera.value ||
@@ -925,13 +1284,73 @@ class Camera extends GetWidget<CameraPageController> {
           width: 65,
           height: 65,
           child: ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              Get.toNamed('gallery');
+            },
             style: ElevatedButton.styleFrom(
               shape: CircleBorder(),
-              padding: EdgeInsets.all(5),
+              padding: EdgeInsets.all(2),
               backgroundColor: MainConstant.white,
             ),
-            child: Icon(Icons.photo_library, size: 40, color: MainConstant.black),
+            child:
+                // Icon(Icons.photo_library, size: 40, color: MainConstant.black),
+                Obx(() {
+                  final gallery = Get.find<GalleryController>();
+                  final bool processingimage = controller.processingcount.value > 0;
+
+                  // 1. ไม่มีรูปเลย + ไม่กำลังประมวลผล
+                  if (gallery.assets.isEmpty && !processingimage) {
+                    return Icon(Icons.photo_library, size: 40, color: MainConstant.black);
+                  }
+
+                  // 2. ไม่มีรูป + กำลังประมวลผล
+                  if (gallery.assets.isEmpty && processingimage) {
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ClipOval(child: Container(width: 58, height: 58, color: MainConstant.grey)),
+                        LoadingAnimationWidget.threeArchedCircle(
+                          color: MainConstant.white,
+                          size: 30,
+                        ),
+                      ],
+                    );
+                  }
+
+                  // 3. มีรูปแล้ว → ใช้รูปแรก (ล่าสุด)
+                  final lastasset = gallery.assets.first;
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ClipOval(
+                        child: AssetEntityImage(
+                          lastasset,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+
+                      // overlay ตอนกำลัง process
+                      if (processingimage)
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: MainConstant.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: LoadingAnimationWidget.threeArchedCircle(
+                              color: MainConstant.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
           ),
         ),
       );
@@ -968,8 +1387,9 @@ class Camera extends GetWidget<CameraPageController> {
           width: 65,
           height: 65,
           child: ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               controller.takePicture();
+
               if (kDebugMode) {
                 print('===>> [status] ถ่ายรูป');
               }
@@ -1016,7 +1436,10 @@ class Camera extends GetWidget<CameraPageController> {
           width: 65,
           height: 65,
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+
+               Get.toNamed('setting');
+            },
             style: TextButton.styleFrom(
               shape: CircleBorder(),
               padding: EdgeInsets.all(5),

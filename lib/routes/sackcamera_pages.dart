@@ -3,11 +3,15 @@ import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/routes/sakcamera_routes.dart';
 import 'package:sakcamera_getx/state/camera/camera_controller.dart';
 import 'package:sakcamera_getx/state/app/checkversion_controller.dart';
+import 'package:sakcamera_getx/state/camera/gallery_controller.dart';
+import 'package:sakcamera_getx/state/camera/setting_controller.dart';
 import 'package:sakcamera_getx/state/login/login_controller.dart';
 import 'package:sakcamera_getx/state/app/splashscreen_controller.dart';
 import 'package:sakcamera_getx/state/app/webinapp_controller.dart';
 import 'package:sakcamera_getx/view/camera/camera_view.dart';
 import 'package:sakcamera_getx/view/app/checkversionpage_app_view.dart';
+import 'package:sakcamera_getx/view/camera/gallery_view.dart';
+import 'package:sakcamera_getx/view/camera/setting_view.dart';
 import 'package:sakcamera_getx/view/login/login_view.dart';
 import 'package:sakcamera_getx/view/app/webinapp_view.dart';
 import 'package:sakcamera_getx/view/app/splashscreen_view.dart';
@@ -59,12 +63,23 @@ class AppPages {
         Get.put(CameraPageController());
       }),
     ),
-    // GetPage(
-    //   name: Routes.GALLERY,
-    //   page: () => const GalleryView(),
-    //   binding: BindingsBuilder(() {
-    //     Get.put(GalleryController());
-    //   }),
-    // ),
+    GetPage(
+      name: Routes.gallery,
+      page: () => Gallery(),
+      transition: Transition.cupertino, // ใช้ fade
+      transitionDuration: const Duration(milliseconds: 600),
+      binding: BindingsBuilder(() {
+        Get.put(GalleryController());
+      }),
+    ),
+    GetPage(
+      name: Routes.setting,
+      page: () => Setting(),
+      transition: Transition.cupertino, // ใช้ fade
+      transitionDuration: const Duration(milliseconds: 600),
+      binding: BindingsBuilder(() {
+        Get.put(SettingController());
+      }),
+    ),
   ];
 }

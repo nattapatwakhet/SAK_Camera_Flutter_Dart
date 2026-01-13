@@ -4,5 +4,6 @@ abstract class Routes {
   static const privcyandpolicy = '/privcyandpolicy';
   static const version = '/version';
   static const camera = '/camera';
+  static const gallery = '/gallery';
   static const setting = '/setting';
 }

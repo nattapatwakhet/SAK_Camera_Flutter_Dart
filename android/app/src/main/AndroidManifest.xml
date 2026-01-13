@@ -1,5 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.saksiamleasing.sakcamera">
+
+    <!-- kotlin version >= 35 -->
+    <!-- xmlns:tools="http://schemas.android.com/tools" -->
+    <!-- kotlin version >= 35 -->
 
     <!-- Pubspace Package permission_handler camera -->
     <uses-permission android:name="android.permission.CAMERA"/>
@@ -9,6 +12,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- Pubspace Package permission_handler  location -->
+
+    <!-- package (location, geolocator, flutter_local_notifications) -->
+    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
+    <!-- package (location, geolocator, flutter_local_notifications) -->
 
     <!-- Pubspace Package permission_handler  storage -->
     <!-- Android 13+ -->

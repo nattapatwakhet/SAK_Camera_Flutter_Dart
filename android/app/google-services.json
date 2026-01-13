@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "219804733936",
+    "project_id": "sak-camera",
+    "storage_bucket": "sak-camera.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:219804733936:android:ae76101f8a8f4468eecd35",
+        "android_client_info": {
+          "package_name": "com.saksiamleasing.sakcamera"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvuMfIXUMFFYbPQTeP6D8zZ05u13xfOu0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

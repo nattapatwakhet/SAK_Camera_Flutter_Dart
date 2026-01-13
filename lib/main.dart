@@ -1,6 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:sakcamera_getx/compute/internetchecker_comepute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/constant/main_translation_constant.dart';
@@ -12,6 +15,10 @@ import 'package:sakcamera_getx/state/app/checkversion_controller.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized(); // เตรียมระบบ Flutter ก่อน
+
+  //INIT intl locale
+  await initializeDateFormatting('th');
+  
   // ล็อคจอให้เป็นแนวตั้งอย่างเดียว
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -19,6 +26,12 @@ Future main() async {
   Get.put(UserController());
   Get.put(InternetChecker());
   Get.put(CheckVersionController());
+
+  await Firebase.initializeApp().timeout(const Duration(seconds: 90)).catchError((error) {
+    if (kDebugMode) {
+      print('===>> [error] Firebase initializeApp: $error');
+    }
+  });
 
   runApp(MyApp());
   // runApp(
