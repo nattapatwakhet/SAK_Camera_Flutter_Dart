@@ -6,8 +6,8 @@ class MainConstant {
   // app
   static DateTime datetime = DateTime.now();
   static String nameapp = 'SAK Camera';
-  static String version = '2.0.0';
-  static String nameversion = '20';
+  static String version = '1.3.14';
+  static String nameversion = '24';
   static String nameapplestore = 'com.saksiamleasing.sakcamera';
   static String nameplaystorepackage = 'com.saksiamleasing.sakcamera';
   static String namewebpackage = 'com.saksiamleasing.sakcamera';

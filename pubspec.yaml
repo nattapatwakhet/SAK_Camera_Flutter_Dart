@@ -22,6 +22,14 @@ dependencies:
   camera: ^0.11.3 # not support Linux, Windows, Macos. # setting. //===>> (กล้อง)
   sensors_plus: ^7.0.0 # not support Linux, Windows, Macos. //===>> จัดการเซ็นเซอร์การหมุน
 
+  # Map
+  google_maps_flutter: ^2.14.0 # not support Linux, Windows, Macos //===>> จัดการแผนที่
+  geolocator: ^14.0.2
+  flutter_map: ^8.2.2
+
+  # Gallery
+  carousel_slider: ^5.1.1 # support all  //===>> รูปแบบสไลด์รูปหน้า fullscreen
+
   # No setting
   get: ^4.7.2 #support all //===>> (GetX State Management)
   device_info_plus: ^11.4.0 # support all # setting. //===>> (ตรวจสอบระบบปฎิบัติการของอุปกรณ์, แพลตฟอร์มและเวอร์ชัน)
@@ -34,12 +42,15 @@ dependencies:
   another_flushbar: ^1.12.32 #support all. //===>> (ออกแบบ flushvbar ใช้แทน snackbar ได้)
   lottie: ^3.3.2 #support all. //===>> (จัดการ icon json)
   convex_bottom_bar: ^3.2.0 #support all. //===>> (จัดการ เมนู bar)
-  photo_manager: ^3.7.0 #not support Linux, Windows, Web //===>> (จัดการการบันทึกไฟล์ลงเครื่อง Android เก่า)
+  photo_manager: ^3.7.1 #not support Linux, Windows, Web //===>> (จัดการการบันทึกไฟล์ลงเครื่อง Android เก่า)
+  photo_manager_image_provider: ^2.2.0
   gal: ^2.3.2 #not support Linux, Web //===>> (จัดการการบันทึกไฟล์ลงเครื่อใหม่สำหรับ Android และ iOS)
   path_provider: ^2.1.5 #not support Web //===>> (จัดการ path)
   image: ^4.5.4 #support all //===>> (จัดการ image)
-  flutter_image_compress: ^2.4.0 #not support Linux, Windows //===>> (จัดการ format รูปภาพ)
+  exif: ^3.3.0
+  flutter_image_compress: ^2.1.0 #not support Linux, Windows //===>> (จัดการ format รูปภาพ)
   image_gallery_saver_plus: ^4.0.1
+
 
   # Database
   path: ^1.9.1 # support all. //===>> (สร้างที่่เก็บไฟล์และกำหนด path)
@@ -47,6 +58,7 @@ dependencies:
   shared_preferences: ^2.5.3 #support all. //===>> (เก็บข้อมูลขนาดเล็กแบบถาวร (Key-Value Storage) บนอุปกรณ์)
   sqflite: ^2.4.2 # support all. //===>> (จัดการฐานข้อมูล SQLite ภายในเครื่อง)
   intl: ^0.20.2 # support all. //===>> (แปลงวันที่และเวลาสำหรับภาษาไทย)
+  firebase_core: ^4.2.1
   # Database
 
 dev_dependencies:
@@ -56,13 +68,13 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   # flutter_launcher_icons: ^0.14.4 #not support Web. //===>> (icon หน้า App)
   # package_rename: ^1.10.0 #not support Web. //===>> (เปลี่ยน ชื่อแอป (App name), เปลี่ยน แพ็กเกจ Android (applicationId),เปลี่ยน Bundle Identifier ของ iOS),เปลี่ยนได้ทั้ง Android/iOS พร้อมกันในคำสั่งเดียว)
-  flutter_native_splash: ^2.2.16 #not support Linux, Macos, Windows. //===>> (หน้าแรกเข้า app)
+  # flutter_native_splash: ^2.2.16 #not support Linux, Macos, Windows. //===>> (หน้าแรกเข้า app)
   device_preview_plus: ^2.5.1
 
 package_rename_config:
   android:
     app_name: SAK Camera
-    package_name: com.saksiamleasing.sakcamera
+    package_name: com.saksiaml
     override_old_package: com.saksiamleasing.sakcamera
     lang: kotlin
   ios:
@@ -113,6 +125,9 @@ flutter:
     - assets/logo/
     - assets/images/
     - assets/lottie/
+    - assets/fonts/bitmap-kanit.zip
+    - assets/fonts/bitmap-kanit.fnt
+    - assets/fonts/bitmap-kanit_0.png
 
   fonts:
     - family: Sukhumvit
@@ -125,3 +140,7 @@ flutter:
           weight: 600
         - asset: assets/fonts/sukhumvit/SukhumvitTadmai-ExtraBold.otf
           weight: 800
+
+    - family: Kanit
+      fonts:
+        - asset: assets/fonts/Kanit-Regular.ttf

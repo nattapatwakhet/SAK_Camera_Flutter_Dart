@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.saksiamleasing" "\0"
-            VALUE "FileDescription", "sakcamera" "\0"
+            VALUE "CompanyName", "Saksiam Leasing Public Company Limited" "\0"
+            VALUE "FileDescription", "SAK Camera" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "sakcamera" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.saksiamleasing. All rights reserved." "\0"
-            VALUE "OriginalFilename", "sakcamera.exe" "\0"
-            VALUE "ProductName", "sakcamera" "\0"
+            VALUE "InternalName", "SAK Camera" "\0"
+            VALUE "LegalCopyright", "Saksiam Leasing Public Company Limited" "\0"
+            VALUE "OriginalFilename", "SAK_Camera_Windows.exe" "\0"
+            VALUE "ProductName", "SAK Camera" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

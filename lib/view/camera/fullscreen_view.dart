@@ -1,217 +1,203 @@
-import 'package:flutter/foundation.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:sakcamera_getx/component/main_dialog_component.dart';
+import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
-import 'package:sakcamera_getx/state/login/login_controller.dart';
+import 'package:sakcamera_getx/state/camera/fullscreen_controller.dart';
+import 'package:sakcamera_getx/state/camera/gallery_controller.dart';
 
-class Login extends StatelessWidget {
-  final LoginController logincontroller = Get.put(LoginController());
-
-  Login({super.key});
+class Fullscreen extends GetWidget<FullscreenController> {
+  const Fullscreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: MainConstant.transparent,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MainConstant.primary,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-    );
+    final gallery = Get.find<GalleryController>();
 
-    return OrientationBuilder(
-      builder: (context, orientation) {
-        return MediaQuery.withClampedTextScaling(
-          minScaleFactor: 1,
-          maxScaleFactor: 1,
-          child: GestureDetector(
-            onTap: () {
-              FocusScope.of(context).unfocus();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Stack(
-              alignment: AlignmentDirectional.center,
-              children: [
-                Column(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: Container(
-                        color: orientation == Orientation.portrait
-                            ? MainConstant.black
-                            : MainConstant.transparent,
-                      ),
+    return Scaffold(
+      backgroundColor: MainConstant.black,
+      body: Obx(() {
+        if (gallery.assets.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          children: [
+            // ===== รูปใหญ่ =====
+            Expanded(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CarouselSlider.builder(
+                    carouselController: controller.carouselcontroller,
+                    itemCount: gallery.assets.length,
+                    options: CarouselOptions(
+                      initialPage: controller.initialpage,
+                      // initialPage: controller.currentindex.value,
+                      enableInfiniteScroll: false,
+                      viewportFraction: 1,
+                      height: double.infinity,
+                      onPageChanged: (index, _) {
+                        if (controller.animatingfromthumb) {
+                          // slide ที่เกิดจาก thumbnail → ข้าม
+                          controller.animatingfromthumb = false;
+                          return;
+                        }
+
+                        controller.currentindex.value = index;
+                        controller.scrollThumbnail(index);
+                      },
                     ),
-                    Expanded(flex: 1, child: Container(color: MainConstant.transparent)),
-                  ],
-                ),
-
-                // ใช้ Obx เพื่อจับค่าจาก Controller
-                SafeArea(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      logincontroller.lastconstraints.value = constraints;
-
-                      if (kDebugMode) {
-                        print('=== LayoutBuilder Constraints ===');
-                        print('MaxWidth: ${constraints.maxWidth}');
-                        print('MaxHeight: ${constraints.maxHeight}');
-                      }
-
-                      return PopScope(
-                        canPop: false, // false จะแสดง pop up เราก่อน ถ้า true จะออกเลย
-                        onPopInvokedWithResult: (didPop, popResult) async {
-                          final result = await MainDialog.dialogPopup(
-                            context,
-                            true,
-                            Localizations.localeOf(context).languageCode == 'th'
-                                ? 'แจ้งเตือน'
-                                : 'warning',
-                            message: Localizations.localeOf(context).languageCode == 'th'
-                                ? 'ต้องการปิดแอปหรือไม่'
-                                : 'Want to close the app?',
-                            confirmbutton: Localizations.localeOf(context).languageCode == 'th'
-                                ? 'ตกลง'
-                                : 'Ok',
-                            closebutton: Localizations.localeOf(context).languageCode == 'th'
-                                ? 'ยกเลิก'
-                                : 'Cancle',
-                          );
-                          if (result == true) {
-                            SystemNavigator.pop(); // ออกจากแอปหรือปิดแอป
-                          }
-                        },
-                        child: Scaffold(
-                          appBar: widgetAppBar(context),
-                          backgroundColor: MainConstant.grey,
-                          body: SizedBox(
-                            width: MainConstant.setWidthFull(context, constraints),
-                            height: MainConstant.setHeightFull(context, constraints),
-                            child: Form(
-                              key: logincontroller.formkey,
-                              child: Stack(
-                                alignment: AlignmentDirectional.topStart,
-                                children: [
-                                  SingleChildScrollView(
-                                    physics: const ClampingScrollPhysics(),
-                                    controller: logincontroller.scrollcontroller,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.start,
-                                      children: [
-                                        widgetForm(context, constraints),
-                                        // widgetLoginHeader(context, constraints, orientation),
-                                        // widgetLoginForm(context, constraints, orientation),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                    itemBuilder: (_, index, __) {
+                      final asset = gallery.assets[index];
+                      return Center(
+                        child: InteractiveViewer(
+                          transformationController: controller.transformcontroller,
+                          onInteractionEnd: (_) => controller.onTransformChanged(),
+                          onInteractionUpdate: (_) => controller.onTransformChanged(),
+                          child: AssetEntityImage(asset, isOriginal: true, fit: BoxFit.contain),
                         ),
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
-  Widget widgetForm(BuildContext context, BoxConstraints constraints) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: MainConstant.setWidth(context, constraints, 430),
-          margin: EdgeInsets.only(top: 15),
-
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        MainConstant.setWidth(context, constraints, 36),
+                  // ===== ลูกศรซ้าย =====
+                  Obx(() {
+                    if (controller.currentindex.value == 0
+                    // || controller.iszoom.value
+                    ) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned(
+                      left: 10,
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back_ios, color: MainConstant.white, size: 30),
+                        onPressed: () {
+                          controller.resetZoom(); //reset zoom ก่อนเลื่อน
+                          controller.carouselcontroller.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
                       ),
-                      color: MainConstant.primary,
-                    ),
-                    width: MainConstant.setWidthFull(context, constraints),
-                    height: MainConstant.setHeight(context, constraints, 650),
+                    );
+                  }),
 
-                    padding: EdgeInsets.symmetric(
-                      horizontal: MainConstant.setWidth(context, constraints, 20),
-                      vertical: MainConstant.setHeight(context, constraints, 15),
-                    ),
-
-                    // child: Scrollbar(
-                    //   thumbVisibility: true,
-                    //   radius: const Radius.circular(12),
-                    //   thickness: 5,
-                    child: Column(children: [
-                       
-                      ],
-                    ),
-                  ),
-                  // ),
+                  // ===== ลูกศรขวา =====
+                  Obx(() {
+                    if (controller.currentindex.value >= gallery.assets.length - 1 
+                    // || controller.iszoom.value
+                        ) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned(
+                      right: 10,
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_forward_ios, color: MainConstant.white, size: 30),
+                        onPressed: () {
+                          controller.resetZoom(); // reset zoom ก่อนเลื่อน
+                          controller.carouselcontroller.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
+                    );
+                  }),
                 ],
               ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+            ),
 
-//===>> AppBar <===//
-PreferredSizeWidget widgetAppBar(BuildContext context) {
-  return PreferredSize(
-    preferredSize: Size.fromHeight(60),
-    child: AppBar(
-      backgroundColor: MainConstant.primary,
-      automaticallyImplyLeading: false,
-      flexibleSpace: SafeArea(
-        child: Stack(
-          children: [
-            // Positioned(
-            //   bottom: 0,
-            //   left: 15,
-            //   child: IconButton(
-            //     icon: Icon(Icons.arrow_back_ios, color: MainConstant.white),
-            //     onPressed: () => Navigator.pop(context),
-            //     padding: EdgeInsets.zero,
-            //     constraints: BoxConstraints(),
-            //   ),
-            // ),
-            Positioned(
-              bottom: 6,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  'nameapp'.tr,
-                  style: TextStyle(
-                    fontSize: MainConstant.h24,
-                    fontWeight: MainConstant.boldfontweight,
-                    color: MainConstant.white,
-                  ),
+            // ===== แถบ preview ด้านล่าง =====
+            SizedBox(
+              height: 80,
+              child: ListView.builder(
+                controller: controller.thumbnailscroll,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemCount: gallery.assets.length,
+                itemBuilder: (context, index) {
+                  final asset = gallery.assets[index];
+                  // final bool active = controller.currentindex.value == index;
+
+                  return GestureDetector(
+                    onTap: () {
+                      // controller.carouselcontroller.jumpToPage(index);
+                      controller.animatingfromthumb = true;
+
+                      controller.carouselcontroller.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+
+                      controller.currentindex.value = index;
+                      controller.scrollThumbnail(index);
+                    },
+                    child: Obx(() {
+                      final bool active = controller.currentindex.value == index;
+                      return Container(
+                        margin: EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: active ? MainConstant.white : MainConstant.transparent,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: AssetEntityImage(asset, width: 60, height: 60, fit: BoxFit.cover),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+            ),
+
+            // ===== control bar (ย้อนกลับ + ลบ) =====
+            SafeArea(
+              top: false,
+              child: Container(
+                height: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                color: MainConstant.black.withValues(alpha: 0.85),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // ปุ่มย้อนกลับ
+                    IconButton(
+                      icon: Image.asset(
+                        'assets/images/back.png',
+                        width: 25,
+                        height: 25,
+                        color: MainConstant.white,
+                      ),
+                      onPressed: () => Get.back(),
+                    ),
+
+                    // ปุ่มลบ
+                    IconButton(
+                      icon: Image.asset(
+                        'assets/images/bin_1.png',
+                        width: 25,
+                        height: 25,
+                        color: MainConstant.white, // ถ้าเป็น PNG ขาว/โปร่ง จะ tint ได้
+                      ),
+                      onPressed: () async {
+                        final deleteimage = await controller.deleteImage();
+                        if (deleteimage && gallery.assets.isEmpty) {
+                          Get.back(result: true);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    ),
-  );
+        );
+      }),
+    );
+  }
 }

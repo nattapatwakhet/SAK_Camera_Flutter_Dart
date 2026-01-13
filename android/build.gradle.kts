@@ -3,6 +3,15 @@ allprojects {
         google()
         mavenCentral()
     }
+    subprojects {
+        project.configurations.all {
+            resolutionStrategy.eachDependency {
+                if (requested.group == "com.github.bumptech.glide" && requested.name.contains("glide")) {
+                    useVersion("4.15.1")
+                }
+            }
+        }
+    }
 }
 
 val newBuildDir: Directory =

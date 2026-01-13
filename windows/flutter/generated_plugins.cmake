@@ -4,8 +4,10 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
+  firebase_core
   flutter_inappwebview_windows
   gal
+  geolocator_windows
   permission_handler_windows
   url_launcher_windows
 )
