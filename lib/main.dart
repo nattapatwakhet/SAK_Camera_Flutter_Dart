@@ -16,22 +16,28 @@ import 'package:sakcamera_getx/state/app/checkversion_controller.dart';
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized(); // เตรียมระบบ Flutter ก่อน
 
+  await Firebase.initializeApp(); //firebase
+  if (kDebugMode) {
+    print('===>> 🔥 Firebase initialized');
+  }
+  debugPrint('🔥 Firebase initialized');
+
   //INIT intl locale
   await initializeDateFormatting('th');
-  
+
   // ล็อคจอให้เป็นแนวตั้งอย่างเดียว
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  // await Firebase.initializeApp().timeout(const Duration(seconds: 90)).catchError((error) {
+  //   if (kDebugMode) {
+  //     print('===>> [error] Firebase initializeApp: $error');
+  //   }
+  // });
 
   Get.put(DeviceController());
   Get.put(UserController());
   Get.put(InternetChecker());
   Get.put(CheckVersionController());
-
-  await Firebase.initializeApp().timeout(const Duration(seconds: 90)).catchError((error) {
-    if (kDebugMode) {
-      print('===>> [error] Firebase initializeApp: $error');
-    }
-  });
 
   runApp(MyApp());
   // runApp(

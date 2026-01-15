@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:sakcamera_getx/state/camera/camera_controller.dart';
 
 class GalleryController extends GetxController {
   final assets = <AssetEntity>[].obs;
@@ -10,7 +12,23 @@ class GalleryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadImages();
+    // loadImages();
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    final camera = Get.find<CameraPageController>();
+
+    ever(camera.storagepermission, (bool granted) {
+      if (granted) {
+        loadImages();
+      }
+    });
+
+    if (camera.storagepermission.value) {
+      loadImages();
+    }
   }
 
   Future<void> loadImages() async {
@@ -24,8 +42,13 @@ class GalleryController extends GetxController {
     }
 
     // Permission
-    final permission = await PhotoManager.requestPermissionExtend();
-    if (!permission.isAuth) {
+    // final permission = await PhotoManager.requestPermissionExtend();
+    // if (!permission.isAuth) {
+    //   loading.value = false;
+    //   return;
+    // }
+    final camera = Get.find<CameraPageController>();
+    if (!camera.storagepermission.value) {
       loading.value = false;
       return;
     }
@@ -39,13 +62,20 @@ class GalleryController extends GetxController {
       ),
     );
 
+    if (albums.isEmpty) {
+      assets.clear();
+      loading.value = false;
+      return;
+    }
+
     List<AssetEntity> list;
 
     // จุดสำคัญ
     if (Platform.isAndroid) {
-      final sdk = int.parse(
-        Platform.operatingSystemVersion.replaceAll(RegExp(r'[^0-9]'), '').substring(0, 2),
-      );
+      // final sdk = int.parse(
+      //   Platform.operatingSystemVersion.replaceAll(RegExp(r'[^0-9]'), '').substring(0, 2),
+      // );
+      final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
 
       if (sdk <= 29) {
         // Android 10 หรือต่ำกว่า
@@ -74,34 +104,33 @@ class GalleryController extends GetxController {
   }
 
   Future<void> insertByFileName(String filename) async {
-  // รอให้ system index ก่อน (จำเป็นมาก)
-  await Future.delayed(const Duration(milliseconds: 300));
+    // รอให้ system index ก่อน (จำเป็นมาก)
+    // await Future.delayed(const Duration(milliseconds: 300));
+    for (int i = 0; i < 5; i++) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      // reload albums + search
+    }
 
-  final albums = await PhotoManager.getAssetPathList(
-    type: RequestType.image,
-    onlyAll: true,
-    filterOption: FilterOptionGroup(
-      orders: const [
-        OrderOption(type: OrderOptionType.createDate, asc: false),
-      ],
-    ),
-  );
+    final albums = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+      onlyAll: true,
+      filterOption: FilterOptionGroup(
+        orders: const [OrderOption(type: OrderOptionType.createDate, asc: false)],
+      ),
+    );
 
-  if (albums.isEmpty) return;
+    if (albums.isEmpty) return;
 
-  final recent = await albums.first.getAssetListRange(start: 0, end: 50);
+    final recent = await albums.first.getAssetListRange(start: 0, end: 50);
 
-  // หา asset ที่ชื่อไฟล์ตรงกับของเรา
-  final match = recent.firstWhereOrNull(
-    (a) => a.title == filename,
-  );
+    // หา asset ที่ชื่อไฟล์ตรงกับของเรา
+    final match = recent.firstWhereOrNull((a) => a.title == filename);
 
-  if (match == null) return;
+    if (match == null) return;
 
-  // กัน insert ซ้ำ
-  if (assets.isNotEmpty && assets.first.id == match.id) return;
+    // กัน insert ซ้ำ
+    if (assets.isNotEmpty && assets.first.id == match.id) return;
 
-  assets.insert(0, match);
-}
-
+    assets.insert(0, match);
+  }
 }

@@ -401,7 +401,6 @@ class Camera extends GetWidget<CameraPageController> {
                                   blurRadius: 3,
                                   color: MainConstant.black,
                                   offset: Offset(1, 1),
-                                  //asdasdasda
                                 ),
                               ],
                             ),
