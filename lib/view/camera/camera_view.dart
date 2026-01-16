@@ -29,7 +29,7 @@ class Camera extends GetWidget<CameraPageController> {
       SystemUiOverlayStyle(
         statusBarColor: MainConstant.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MainConstant.primary,
+        systemNavigationBarColor: MainConstant.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
     );
@@ -53,7 +53,7 @@ class Camera extends GetWidget<CameraPageController> {
                       flex: 1,
                       child: Container(
                         color: orientation == Orientation.portrait
-                            ? MainConstant.primary
+                            ? MainConstant.black
                             : MainConstant.transparent,
                       ),
                     ),
@@ -93,7 +93,7 @@ class Camera extends GetWidget<CameraPageController> {
                         },
                         child: Scaffold(
                           // appBar: widgetAppBar(context),
-                          backgroundColor: MainConstant.primary,
+                          backgroundColor: MainConstant.black,
                           body: SizedBox(
                             width: MainConstant.setWidthFull(context, constraints),
                             height: MainConstant.setHeightFull(context, constraints),
@@ -101,61 +101,72 @@ class Camera extends GetWidget<CameraPageController> {
                               mainAxisSize: MainAxisSize.max,
                               children: [
                                 Expanded(
+                                  flex: 1,
+                                  child: Stack(
+                                    // mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      buildWidgetCameraSwitchButtons(context, constraints),
+                                      buildWidgetSetButtons(context, constraints),
+                                      buildWidgetCameraMarkerButtons(context, constraints),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
                                   flex: 9,
                                   child: Center(
-                                    child: AspectRatio(
-                                      aspectRatio: 3 / 4,
-                                      child: LayoutBuilder(
-                                        builder: (context, box) {
-                                          // box = preview จริง 100%
-                                          controller.previewsize.value = Size(
-                                            box.maxWidth,
-                                            box.maxHeight,
-                                          );
+                                    child: Container(
+                                      color: MainConstant.black,
+                                      child: AspectRatio(
+                                        aspectRatio: 3 / 4,
+                                        child: LayoutBuilder(
+                                          builder: (context, box) {
+                                            // box = preview จริง 100%
+                                            controller.previewsize.value = Size(
+                                              box.maxWidth,
+                                              box.maxHeight,
+                                            );
 
-                                          return Stack(
-                                            fit: StackFit.expand,
-                                            children: [
-                                              // SizedBox(
-                                              //   width: constraints.maxWidth,
-                                              //   height: constraints.maxHeight,
-                                              //   child: buildWidgetCameraPreview(
-                                              //     context,
-                                              //     constraints,
-                                              //   ),
-                                              // ),
-                                              buildWidgetCameraPreview(context, box),
+                                            return Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                // SizedBox(
+                                                //   width: constraints.maxWidth,
+                                                //   height: constraints.maxHeight,
+                                                //   child: buildWidgetCameraPreview(
+                                                //     context,
+                                                //     constraints,
+                                                //   ),
+                                                // ),
+                                                buildWidgetCameraPreview(context, box),
 
-                                              /// ===== Shutter Effect =====
-                                              Obx(() {
-                                                if (!controller.shuttereffect.value) {
-                                                  return const SizedBox.shrink();
-                                                }
+                                                /// ===== Shutter Effect =====
+                                                Obx(() {
+                                                  if (!controller.shuttereffect.value) {
+                                                    return const SizedBox.shrink();
+                                                  }
 
-                                                return Positioned.fill(
-                                                  child: Container(
-                                                    color: MainConstant.black.withValues(
-                                                      alpha: 0.6,
+                                                  return Positioned.fill(
+                                                    child: Container(
+                                                      color: MainConstant.black.withValues(
+                                                        alpha: 0.6,
+                                                      ),
                                                     ),
-                                                  ),
-                                                );
-                                              }),
+                                                  );
+                                                }),
 
-                                              buildWidgetLogo(context, constraints),
-                                              buildMiniMapGoogle(context, constraints),
-                                              widgetInfoText(context, constraints),
-                                              buildWidgetCameraFlashButtons(context, constraints),
-                                              buildWidgetCameraSwitchButtons(context, constraints),
-                                              buildWidgetCameraMarkerButtons(context, constraints),
-                                            ],
-                                          );
-                                        },
+                                                buildWidgetLogo(context, constraints),
+                                                buildMiniMapGoogle(context, constraints),
+                                                widgetInfoText(context, constraints),
+                                              ],
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 3,
+                                  flex: 2,
                                   child: Container(
                                     color: MainConstant.transparent,
                                     child: Row(
@@ -187,17 +198,13 @@ class Camera extends GetWidget<CameraPageController> {
                                         //     ),
                                         //   ],
                                         // ),
-                                        buildGalleryButton(context, constraints),
-                                        buildTakePictureButton(context, constraints),
-                                        buildSettingButton(context, constraints),
+                                        buildWidgetGalleryButton(context, constraints),
+                                        buildWidgetTakePictureButton(context, constraints),
+                                        buildWidgetSwitchCameraButton(context, constraints),
                                       ],
                                     ),
                                   ),
                                 ),
-                                // Expanded(
-                                //   flex: 1,
-                                //   child: Container(color: MainConstant.red),
-                                // ),
                               ],
                             ),
                           ),
@@ -766,6 +773,7 @@ class Camera extends GetWidget<CameraPageController> {
                     width: 105,
                     height: 105,
                     child: gm.GoogleMap(
+                      key: controller.mapcontroller.googlemapkey.value,
                       mapType: gm.MapType.satellite,
                       initialCameraPosition: gm.CameraPosition(target: currentlatlng, zoom: 18),
                       markers: c.googlemarker,
@@ -808,7 +816,7 @@ class Camera extends GetWidget<CameraPageController> {
   //===>> Map <===//
 
   //===>> Flash <===//
-  Widget buildWidgetCameraFlashButtons(BuildContext context, BoxConstraints constraints) {
+  Widget buildWidgetSetButtons(BuildContext context, BoxConstraints constraints) {
     return Obx(() {
       // กล้องยังโหลดไม่เสร็จไม่ต้อง render position อะไรทั้งนั้น
       if (!controller.statuscamera.value ||
@@ -828,23 +836,26 @@ class Camera extends GetWidget<CameraPageController> {
       switch (controller.rotationangle.value) {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
-          xbottom = 0;
-          yright = 90;
+          xtop = 0;
+          yright = 100;
           break;
+
         case 3: // หมุนขวา
           angle = -math.pi / 2;
           xtop = 0;
-          yleft = 90;
+          yright = 100;
           break;
+
         case 2: // กลับหัว
           angle = math.pi;
-          xbottom = 90;
-          yleft = 0;
+          xtop = 0;
+          yright = 100;
           break;
-        default: // แนวตั้ง
+
+        default: //แนวตั้ง
           angle = 0.0;
-          xtop = 90;
-          yright = 0;
+          xtop = 0;
+          yright = 100;
       }
 
       return TweenAnimationBuilder(
@@ -917,9 +928,9 @@ class Camera extends GetWidget<CameraPageController> {
       }
 
       // ตรวจว่าเป็นกล้องหน้า / หลัง
-      final frontcamera =
-          controller.cameralist[controller.selectedcamera].lensDirection ==
-          CameraLensDirection.front;
+      // final frontcamera =
+      //     controller.cameralist[controller.selectedcamera].lensDirection ==
+      //     CameraLensDirection.front;
 
       double angle;
       double? xtop;
@@ -930,52 +941,32 @@ class Camera extends GetWidget<CameraPageController> {
       switch (controller.rotationangle.value) {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
-          if (frontcamera) {
-            // กล้องหน้า → เลื่อนขึ้นแทนตำแหน่งแฟลช
-            xbottom = 0;
-            yright = 90;
-          } else {
-            xbottom = 0;
-            yright = 140;
-          }
+          xtop = 0;
+          yright = 0;
           break;
 
         case 3: // หมุนขวา
           angle = -math.pi / 2;
-          if (frontcamera) {
-            xtop = 0;
-            yleft = 90;
-          } else {
-            xtop = 0;
-            yleft = 140;
-          }
+          xtop = 0;
+          yright = 0;
           break;
 
         case 2: // กลับหัว
           angle = math.pi;
-          if (frontcamera) {
-            xbottom = 90;
-            yleft = 0;
-          } else {
-            xbottom = 140;
-            yleft = 0;
-          }
+          xtop = 0;
+          yright = 0;
           break;
 
         default: //แนวตั้ง
           angle = 0.0;
-          if (frontcamera) {
-            xtop = 90;
-            yright = 0;
-          } else {
-            xtop = 140;
-            yright = 0;
-          }
+          xtop = 0;
+          yright = 0;
       }
-      return TweenAnimationBuilder(
+
+      return TweenAnimationBuilder<double>(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        tween: Tween<double>(begin: angle, end: angle),
+        tween: Tween(begin: angle, end: angle),
         builder: (context, animetionangle, child) {
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -992,34 +983,16 @@ class Camera extends GetWidget<CameraPageController> {
           child: SizedBox(
             width: 50,
             height: 50,
-            child: Column(
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    controller.switchCamera();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: MainConstant.transparent,
-                    shadowColor: MainConstant.transparent,
-                    elevation: 0,
-                    padding: EdgeInsets.all(5),
-                    shape: CircleBorder(),
-                  ),
-                  child: Icon(
-                    controller.cameralist.isNotEmpty
-                        ? (controller.cameralist[controller.selectedcamera].lensDirection ==
-                                  CameraLensDirection.front
-                              ? Icons.cameraswitch_outlined
-                              : Icons.cameraswitch)
-                        : Icons.cameraswitch,
-                    color: MainConstant.white,
-                    size: 30,
-                    shadows: [
-                      Shadow(offset: Offset(1, 1), blurRadius: 3, color: MainConstant.black),
-                    ],
-                  ),
-                ),
-              ],
+            child: TextButton(
+              onPressed: () {
+                Get.toNamed('setting');
+              },
+              style: TextButton.styleFrom(
+                shape: CircleBorder(),
+                padding: EdgeInsets.all(5),
+                backgroundColor: MainConstant.transparent,
+              ),
+              child: Icon(Icons.settings, size: 30, color: MainConstant.white),
             ),
           ),
         ),
@@ -1040,9 +1013,9 @@ class Camera extends GetWidget<CameraPageController> {
       }
 
       // ตรวจว่าเป็นกล้องหน้า / หลัง
-      final frontcamera =
-          controller.cameralist[controller.selectedcamera].lensDirection ==
-          CameraLensDirection.front;
+      // final frontcamera =
+      //     controller.cameralist[controller.selectedcamera].lensDirection ==
+      //     CameraLensDirection.front;
 
       double angle;
       double? xtop;
@@ -1053,43 +1026,26 @@ class Camera extends GetWidget<CameraPageController> {
       switch (controller.rotationangle.value) {
         case 1: // หมุนซ้าย
           angle = math.pi / 2;
-          if (frontcamera) {
-            xbottom = 0;
-            yright = 140;
-          } else {
-            xbottom = 0;
-            yright = 190;
-          }
+          xtop = 0;
+          yright = 50;
           break;
+
         case 3: // หมุนขวา
           angle = -math.pi / 2;
-          if (frontcamera) {
-            xtop = 0;
-            yleft = 140;
-          } else {
-            xtop = 0;
-            yleft = 190;
-          }
+          xtop = 0;
+          yright = 50;
           break;
+
         case 2: // กลับหัว
           angle = math.pi;
-          if (frontcamera) {
-            xbottom = 140;
-            yleft = 0;
-          } else {
-            xbottom = 190;
-            yleft = 0;
-          }
+          xtop = 0;
+          yright = 50;
           break;
-        default: // แนวตั้ง
+
+        default: //แนวตั้ง
           angle = 0.0;
-          if (frontcamera) {
-            xtop = 140;
-            yright = 0;
-          } else {
-            xtop = 190;
-            yright = 0;
-          }
+          xtop = 0;
+          yright = 50;
       }
 
       return TweenAnimationBuilder(
@@ -1125,7 +1081,9 @@ class Camera extends GetWidget<CameraPageController> {
                     padding: EdgeInsets.all(5),
                     shape: CircleBorder(),
                   ),
-                  child: Image.asset('assets/images/marker_icon.png', width: 30, height: 30),
+                  child: Center(
+                    child: Image.asset('assets/images/marker_icon.png', width: 30, height: 30),
+                  ),
                 ),
               ],
             ),
@@ -1256,7 +1214,7 @@ class Camera extends GetWidget<CameraPageController> {
   //===>> Zoombar <===//
 
   //===>> Gallery Button <===//
-  Widget buildGalleryButton(BuildContext context, BoxConstraints constraints) {
+  Widget buildWidgetGalleryButton(BuildContext context, BoxConstraints constraints) {
     return Obx(() {
       double angle;
       switch (controller.rotationangle.value) {
@@ -1359,7 +1317,7 @@ class Camera extends GetWidget<CameraPageController> {
   //===>> Gallery Button <===//
 
   //===>> TakePicture Button <===//
-  Widget buildTakePictureButton(BuildContext context, BoxConstraints constraints) {
+  Widget buildWidgetTakePictureButton(BuildContext context, BoxConstraints constraints) {
     return Obx(() {
       double angle;
       switch (controller.rotationangle.value) {
@@ -1408,7 +1366,7 @@ class Camera extends GetWidget<CameraPageController> {
   //===>> TakePicture Button <===//
 
   //===>> Setting Button <===//
-  Widget buildSettingButton(BuildContext context, BoxConstraints constraints) {
+  Widget buildWidgetSwitchCameraButton(BuildContext context, BoxConstraints constraints) {
     return Obx(() {
       double angle;
       switch (controller.rotationangle.value) {
@@ -1425,10 +1383,10 @@ class Camera extends GetWidget<CameraPageController> {
           angle = 0.0;
       }
 
-      return TweenAnimationBuilder<double>(
-        tween: Tween(begin: angle, end: angle),
+      return TweenAnimationBuilder(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
+        tween: Tween<double>(begin: angle, end: angle),
         builder: (context, animetionangle, child) {
           return Transform.rotate(angle: animetionangle, child: child);
         },
@@ -1437,15 +1395,24 @@ class Camera extends GetWidget<CameraPageController> {
           height: 65,
           child: TextButton(
             onPressed: () {
-
-               Get.toNamed('setting');
+              controller.switchCamera();
             },
             style: TextButton.styleFrom(
               shape: CircleBorder(),
               padding: EdgeInsets.all(5),
               backgroundColor: MainConstant.transparent,
             ),
-            child: Icon(Icons.settings, size: 40, color: MainConstant.white),
+            child: Icon(
+              controller.cameralist.isNotEmpty
+                  ? (controller.cameralist[controller.selectedcamera].lensDirection ==
+                            CameraLensDirection.front
+                        ? Icons.cameraswitch_outlined
+                        : Icons.cameraswitch)
+                  : Icons.cameraswitch,
+              color: MainConstant.white,
+              size: 40,
+              shadows: [Shadow(offset: Offset(1, 1), blurRadius: 3, color: MainConstant.black)],
+            ),
           ),
         ),
       );

@@ -16,11 +16,25 @@ class MapController extends GetxController {
   late gm.BitmapDescriptor custommarker;
   bool markerready = false;
 
+final googlemapkey = const ValueKey('mini_map').obs;
+
   @override
   void onInit() {
     super.onInit();
     loadMarker();
   }
+
+  @override
+  void onClose() {
+    // googlemapcontroller.value?.dispose();
+    googlemapcontroller.value = null;
+    super.onClose();
+  }
+
+  // void rebuildMapView(){
+  //   googlemapkey.value =UniqueKey();
+  //   googlemapcontroller.value= null;
+  // }
 
   Future setGoogleLatLng(gm.LatLng latlng, {double zoom = 18}) async {
     // โหลด marker ถ้ายังไม่พร้อม //

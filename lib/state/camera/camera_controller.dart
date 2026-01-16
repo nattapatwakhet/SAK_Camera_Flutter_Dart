@@ -42,6 +42,7 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   bool initialize = false;
   late final UserController usercontroller;
   late final MapController mapcontroller;
+  late final GalleryController gallerycontroller;
   // ===== Layout State ===== //
 
   // ===== Camera & Microphone Permission State ===== //
@@ -1508,9 +1509,8 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     final devicecontroller = Get.find<DeviceController>();
 
     usercontroller = Get.find<UserController>();
-    mapcontroller = Get.put(MapController(), permanent: true);
-
-    Get.put(GalleryController(), permanent: true);
+    mapcontroller = Get.put(MapController());
+    gallerycontroller = Get.put(GalleryController());
 
     if (kDebugMode) {
       print("===>> [status] Device brand is: ${devicecontroller.manufacture.value}");

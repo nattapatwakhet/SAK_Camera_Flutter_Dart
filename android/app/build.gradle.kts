@@ -12,11 +12,11 @@ plugins {
 }
 
 // Set Build release
-// val keystoreProperties = Properties()
-// val keystorePropertiesFile = rootProject.file("key.properties")
-// if (keystorePropertiesFile.exists()) {
-//     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-//  }
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+ }
  // Set Build release
 
 // load settings from local.properties
@@ -73,21 +73,21 @@ android {
     }
 
     // Set Build release
-    // signingConfigs {
-    //     create("release") {
-    //         keyAlias = keystoreProperties["keyAlias"] as String
-    //         keyPassword = keystoreProperties["keyPassword"] as String
-    //         storeFile = keystoreProperties["storeFile"]?.toString()?.let { file(it) }
-    //         storePassword = keystoreProperties["storePassword"] as String
-    //     }
-    // }
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = keystoreProperties["storeFile"]?.toString()?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String
+        }
+    }
     // Set Build release
 
     buildTypes {
         // Set Build release
-        // release {
-        //     signingConfig = signingConfigs.getByName("release")
-        // }
+        release {
+            signingConfig = signingConfigs.getByName("release")
+        }
         // Set Build release
         debug {
             signingConfig = signingConfigs.getByName("debug")
