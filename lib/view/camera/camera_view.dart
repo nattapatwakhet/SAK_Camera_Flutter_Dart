@@ -67,7 +67,7 @@ class Camera extends GetWidget<CameraPageController> {
                     builder: (context, constraints) {
                       controller.lastconstraints.value = constraints;
 
-                      controller.layoutReady =
+                      controller.layoutready =
                           constraints.maxWidth > 0 && constraints.maxHeight > 0;
 
                       if (kDebugMode) {

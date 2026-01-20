@@ -1,27 +1,46 @@
+// =====================================================
+// IMPORTS
+// =====================================================
+
+// Dart core
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:math' as math;
-
 import 'dart:ui' as ui;
 
-import 'package:camera/camera.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+// Flutter
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+
+// Camera & Media
+import 'package:camera/camera.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:gal/gal.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:get/get.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:image/image.dart' as img;
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
-import 'package:path_provider/path_provider.dart';
+
+// Permissions & Storage
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:gal/gal.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:path_provider/path_provider.dart';
+
+// Device / Sensor / Location
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:geolocator/geolocator.dart';
+
+// Map
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
+
+// State / GetX / App modules
+import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Project specific
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
 import 'package:sakcamera_getx/compute/image/image_process_compute.dart';
 import 'package:sakcamera_getx/compute/processtask/process_image_compute.dart';
@@ -31,137 +50,245 @@ import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/model/camera/imageprocess.dart';
 import 'package:sakcamera_getx/state/camera/gallery_controller.dart';
 import 'package:sakcamera_getx/state/camera/map_controller.dart';
-import 'package:sensors_plus/sensors_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class CameraPageController extends GetxController with WidgetsBindingObserver {
   // ===== Layout State ===== //
+  /// context กลางของหน้า camera (ใช้เรียก dialog / navigator)
   BuildContext? get context => Get.context;
-  var lastconstraints = Rx<BoxConstraints?>(null); //เก็บขนาดของ layout ล่าสุด
+
+  /// เก็บ constraint ล่าสุดของ preview
+  /// สำคัญมาก ใช้คำนวณตำแหน่ง logo / map / text ตอน process รูป
+  var lastconstraints = Rx<BoxConstraints?>(null);
+
+  /// ป้องกัน add WidgetsBindingObserver ซ้ำ
   bool addobserver = false;
+
+  /// ป้องกัน init ซ้ำตอน onReady
   bool initialize = false;
+
+  /// controller ที่เกี่ยวข้องกับหน้า camera
   late final UserController usercontroller;
   late final MapController mapcontroller;
   late final GalleryController gallerycontroller;
   // ===== Layout State ===== //
 
+  // ===== Permission State ===== //
   // ===== Camera & Microphone Permission State ===== //
-  RxBool camerapermission = false.obs;
-  RxBool statuscamera = false.obs;
-  RxBool microphonepermission = false.obs;
+  RxBool camerapermission = false.obs; // สิทธิ์กล้อง
+  RxBool statuscamera = false.obs; // สถานะกล้องพร้อมใช้งาน (initialize แล้ว)
+  RxBool microphonepermission = false.obs; // สิทธิ์ไมโครโฟน (ใช้กับ video / audio)
   // ===== Camera & Microphone Permission State ===== //
 
   // ===== Location Permission State ===== //
-  RxBool locationpermission = false.obs;
+  RxBool locationpermission = false.obs; // สิทธิ์ตำแหน่ง (ใช้กับ Google Map)
   // ===== Location Permission State ===== //
 
   // ===== Storage Permission State ===== //
-  RxBool storagepermission = false.obs;
+  RxBool storagepermission = false.obs; // สิทธิ์เก็บข้อมูล / gallery
   // ===== Storage Permission State ===== //
+  // ===== Permission State ===== //
 
   // ===== Permission flag ===== //
-  bool requestpermission = false; //ตัวแปร ควบคุม สถานะไม่ให้เรียก lifecycle
-  bool statusresumed = false; //ตัวแปรสถานะ ออกยุบแอป
+  bool requestpermission = false; // ใช้กัน lifecycle ทำงานระหว่างขอ permission
+  bool statusresumed = false; // ใช้เช็คว่า resume จาก background แล้วหรือยัง (ตอนยุบแอป)
 
-  bool cameradialogshowing = false; //ตัวแปร ควบคุม camera Dialog กันการเด้งซ้อน
-  bool resumedfromsetting = false; //ตัวแปร status มาจากตั้งค่า
-  bool denieddialogshowing = false; //ตัวแปร ควบคุม Denied Dialog กันการเด้งซ้อน
-  bool settingdialogshowing = false; //ตัวแปร ควบคุม Setting Dialog กันการเด้งซ้อน
+  bool cameradialogshowing = false; // ป้องกัน dialog ขอ permission เด้งซ้อน
+  bool resumedfromsetting = false; // ใช้รู้ว่ากลับมาจากหน้า settings
+  bool denieddialogshowing = false; // ป้องกัน dialog denied เด้งซ้อน
+  bool settingdialogshowing = false; // ป้องกัน dialog setting เด้งซ้อน
   // ===== Permission flag ===== //
 
   // ===== process flag ===== //
-  bool layoutReady = false;
+  bool layoutready = false; // true เมื่อ layout พร้อม (ใช้ก่อน takePicture)
   // ===== process flag ===== //
 
   // ===== Sensor  State ===== //
-  final rotationangle = 0.obs; //ตัวแปร sensor หมุนอัตโนมัติ
-  int lastrotationangle = 0; //ตัวแปรตรวจจับการเปลี่ยนแปลงการหมุนอัตโนมัติ
-  StreamSubscription? sensorsub;
+  final rotationangle = 0.obs; //ตัวแปร sensor หมุนอัตโนมัติ ค่า rotation ปัจจุบัน (0,1,2,3)
+  int lastrotationangle = 0; // เก็บ rotation ล่าสุด เพื่อกัน set ซ้ำ
+  StreamSubscription? sensorsub; // subscription ของ sensor
   // ===== Sensor State ===== //
 
   // ===== Camera State ===== //
-  CameraController? cameracontroller;
-  List<CameraDescription> cameralist = [];
-  int selectedcamera = 0; //ตัวแปรสลับกล้องหน้ากล้องหลัง
-  Rx<Size?> previewsize = Rx<Size?>(null); // เก็บขนาดสัดส่วนกล้อง
-
-  CameraLensDirection currentlensdirection = CameraLensDirection.back; //ตัวแปรเก็บค่าสลับกล้อง
+  CameraController? cameracontroller; // controller หลักของกล้อง
+  List<CameraDescription> cameralist = []; // รายชื่อกล้องในเครื่อง
+  int selectedcamera = 0; // index กล้องที่ใช้อยู่ (หน้า / หลัง)
+  Rx<Size?> previewsize = Rx<Size?>(null); // ขนาด preview ที่ได้จาก camera
+  CameraLensDirection currentlensdirection =
+      CameraLensDirection.back; // lens ปัจจุบัน (front / back)
   bool switchcamera = false; //ตัวแปรกันกดซ้ำสลับกล้อง
-  bool showpreview = false; // status กล้องตอนขอสิทธิ์
+  bool showpreview = false; // แสดง preview หรือไม่ (หลังขอ permission)
 
-  Rx<FlashMode> statusflashmode = FlashMode.off.obs; //เพิ่มตัวแปร Flash ออโต้
-  bool setautoflash = false; // ตั้งค่า Flash
-  RxBool shuttereffect = false.obs; //ตัวแปรเอฟเฟคชัตเตอร์
+  // flash & Shutter
+  Rx<FlashMode> statusflashmode = FlashMode.off.obs; // สถานะแฟลช (off / auto / torch)
+  bool setautoflash = false; // flag ใช้กับ flash auto
+  RxBool shuttereffect = false.obs; // เอฟเฟคชัตเตอร์ (flash ขาว)
 
   // focus
-  var focusoffset = Rx<Offset?>(null);
-  var focusscale = 1.0.obs; // scale ของกรอบโฟกัส
-  var focusopacity = 0.0.obs; // ความโปร่งใส
+  var focusoffset = Rx<Offset?>(null); // ตำแหน่ง tap focus
+  var focusscale = 1.0.obs; // scale animation ของกรอบ focus
+  var focusopacity = 0.0.obs; // ความโปร่งใสของกรอบ focus
   // focus
 
-  // ซูม
-  RxDouble zoomlevel = 1.0.obs; // ค่าซูมปัจจุบัน
-  double basezoom = 1.0; // ค่าซูมก่อน pinch start
+  // zoom
+  RxDouble zoomlevel = 1.0.obs; // ระดับ zoom ปัจจุบัน
+  double basezoom = 1.0; // zoom ก่อน pinch start
 
-  double minzoom = 1.0;
-  double maxzoom = 1.0;
+  double minzoom = 1.0; // ค่า zoom ต่ำสุด
+  double maxzoom = 1.0; // สูงสุดจาก hardware
 
-  RxDouble zoomopacity = 0.0.obs;
-  Timer? zoomtimer;
-  // ซูม
+  RxDouble zoomopacity = 0.0.obs; // ใช้แสดง indicator zoom
+  Timer? zoomtimer; // เวลาแสดง zoom
+  // zoom
 
   // ปรับแสง
 
   // ปรับแสง
 
-  img.Image? imglogocache;
-  Uint8List? mapbytes;
-  final GlobalKey infotextkey = GlobalKey();
+  // ===== camera resource cache ===== //
+  img.Image? imglogocache; // cache logo แบบ decode แล้ว (ลดเวลา process)
+  Uint8List? mapbytes; // cache map snapshot bytes
+  final GlobalKey infotextkey = GlobalKey(); // key สำหรับ capture widget text overlay
+  // ===== camera resource cache ===== //
   // ===== Camera State ===== //
 
   // ===== Process State ===== //
-  List<ProcessImage> taskqueue = [];
-  bool processingqueue = false;
+  List<ProcessImage> taskqueue = []; // คิวงาน process รูป
+  bool processingqueue = false; // true เมื่อกำลัง process queue
 
-  final processingcount = 0.obs;
-  // final processingcount = 0.obs;
+  final processingcount = 0.obs; // จำนวนงานที่กำลัง process
 
-  Uint8List? logobytescache; // เก็บโลโก้
-  Uint8List? mapsnapshotbytes; // เก็บภาพแผนที่ (GoogleMap)
-
-  //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
-  double logouiwidth = 80;
-  //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
+  Uint8List? logobytescache; // cache โลโก้แบบ bytes
+  Uint8List? mapsnapshotbytes; // cache map snapshot
 
   //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
-  double mapuiwidth = 110;
+  double logouiwidth = 80; // ความกว้าง logo บน UI
   //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
-
+  //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
+  double mapuiwidth = 110; // ความกว้าง map บน UI
+  //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
   // ===== Process State ===== //
 
   // ===== Storage State ===== //
-  final String albumname = 'SAK_Camera';
+  final String albumname = 'SAK_Camera'; // ชื่ออัลบั้มที่ใช้บันทึกรูป
   // ===== Storage State ===== //
 
-  Future submitLogout() async {
-    try {
-      final result = await MainDialog.dialogPopup(
-        context!,
-        true,
-        'warning'.tr,
-        message: 'warning_close_app'.tr,
-        confirmbutton: 'ok'.tr,
-        closebutton: 'cancel'.tr,
-      );
+  // ===== Function State ===== //
+  @override
+  void onInit() {
+    super.onInit();
 
-      if (result == true) {
-        Get.offAllNamed('/login');
-      }
-    } catch (error) {
+    final devicecontroller = Get.find<DeviceController>();
+
+    usercontroller = Get.find<UserController>();
+    mapcontroller = Get.put(MapController());
+    gallerycontroller = Get.put(GalleryController());
+
+    if (kDebugMode) {
+      print("===>> [status] Device brand is: ${devicecontroller.manufacture.value}");
+    }
+  }
+
+  @override
+  void onReady() async {
+    super.onReady();
+    if (!addobserver) {
+      WidgetsBinding.instance.addObserver(this);
+      addobserver = true;
+    }
+    // โหลด User ใหม่ทุกครั้งที่เข้าหน้ากล้อง
+    final usercontroller = Get.find<UserController>();
+    usercontroller.loadUserFromLocal();
+    if (!initialize) {
+      initialize = true;
+      startApp();
+    }
+  }
+
+  // === จัดการ lifecycle ของแอป === //
+  @override
+  Future didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+    if (requestpermission) {
+      // ข้าม ไม่ต้องจัดการ lifecycle ตอนนี้
       if (kDebugMode) {
-        print('===>> error Logout submitLogout: $error');
+        print("===>> [status] skip lifecycle เพราะกำลังขอ permission");
+      }
+      return;
+    }
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      try {
+        if (!requestpermission) {
+          statusresumed = false;
+
+          //หยุดกล้องขณะยุบแอปพลิเคชัน
+          if (cameracontroller != null) {
+            await cameracontroller!.pausePreview();
+            if (kDebugMode) {
+              print('===>> [status] Camera pausePreview สถานะ: ยุบแอปพลิเคชัน');
+              print('===>> [status] Camera (state: $state)');
+            }
+
+            statuscamera.value = false;
+          }
+        }
+      } catch (error) {
+        if (kDebugMode) {
+          print('===>> [error] state AppLifecycleState.paused: $error');
+        }
+      }
+    } else if (state == AppLifecycleState.resumed && !statusresumed) {
+      try {
+        if (!requestpermission) {
+          if (resumedfromsetting) {
+            resumedfromsetting = false; // reset flag
+            bool camerapermission = await Permission.camera.isGranted;
+            bool microphonepermission = await Permission.microphone.isGranted;
+
+            if (camerapermission || microphonepermission) {
+              cameradialogshowing = false; // reset camera Dialog กันการเด้งซ้อน
+              denieddialogshowing = false; // reset Denied Dialog กันการเด้งซ้อน
+              settingdialogshowing = false; // reset Setting Dialog กันการเด้งซ้อน
+
+              requestpermission = false; // คืนค่าปกติ สถานะไม่ให้เรียก lifecycle
+
+              await startApp(statusprocess: true);
+            }
+          }
+
+          if (!statuscamera.value) {
+            // เปิดกล้องใหม่
+            await openCamera();
+
+            //setflash
+            await setFlashCamera();
+          }
+
+          if (kDebugMode) {
+            print('===>> [status] เรียก camera AppLifecycleState');
+          }
+
+          statusresumed = true;
+        } else {
+          if (resumedfromsetting) {
+            resumedfromsetting = false;
+          }
+        }
+      } catch (error) {
+        if (kDebugMode) {
+          print('===>> [error] state AppLifecycleState.resumed: $error');
+        }
       }
     }
+  }
+
+  @override
+  void onClose() {
+    super.onClose();
+    WidgetsBinding.instance.removeObserver(this);
+    try {
+      cameracontroller?.dispose();
+    } catch (_) {}
+    sensorsub?.cancel();
   }
 
   // ===== start ===== //
@@ -199,57 +326,14 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       //===>> ขออนุญาตสิทธิ์ที่เก็บข้อมูล
 
       requestpermission = false; //การขอ permission จบแล้ว
-
       rotation();
     } catch (error) {
-      if (kDebugMode) {}
+      if (kDebugMode) {
+        print('===>> [error] Fun');
+      }
     }
   }
   // ===== start ===== //
-
-  Future openMapLocation() async {
-    try {
-      // เช็ค Location service //
-      final serviceenabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceenabled) {
-        if (kDebugMode) {
-          print('===>> Location service disabled');
-        }
-        return;
-      }
-      // เช็ค Location service //
-
-      // เช็ค + ขอ permission //
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        if (kDebugMode) {
-          print('===>> Location permission denied forever');
-        }
-        return;
-      }
-      // เช็ค + ขอ permission //
-
-      // ดึงตำแหน่งจริงจาก GPS //
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-
-      if (kDebugMode) {
-        print('===>> Current location: ${position.latitude}, ${position.longitude}');
-      }
-      // ดึงตำแหน่งจริงจาก GPS //
-
-      // ส่งพิกัดให้ MapController //
-      mapcontroller.setGoogleLatLng(gm.LatLng(position.latitude, position.longitude));
-      // ส่งพิกัดให้ MapController //
-    } catch (e) {
-      if (kDebugMode) {
-        print('===>> openMapLocation error: $e');
-      }
-    }
-  }
 
   // ===== ขอสิทขั้นแรก ===== //
   Future getPermission(String permission) async {
@@ -543,83 +627,49 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   }
   // ===== ฟังก์ชันขออนุญาตกล้องไปตั้งค่า ===== //
 
-  // ===== เลือกกล้อง ===== //
-  Future selectBestBackCamera() async {
+  Future openMapLocation() async {
     try {
-      if (cameralist.isEmpty) {
-        return;
-      }
-
-      final backcamera = cameralist
-          .where((c) => c.lensDirection == CameraLensDirection.back)
-          .toList();
-
-      if (backcamera.isEmpty) {
-        selectedcamera = 0;
-        return;
-      }
-
-      double maxzoom = -1;
-      CameraDescription? bestcamera;
-
-      for (final camera in backcamera) {
-        final status = CameraController(
-          camera,
-          ResolutionPreset.max,
-          imageFormatGroup: ImageFormatGroup.jpeg,
-        );
-        await status.initialize();
-
-        final zoomlevel = await status.getMaxZoomLevel();
-        if (zoomlevel > maxzoom) {
-          maxzoom = zoomlevel;
-          bestcamera = camera;
-        }
-        await status.dispose();
-      }
-      // ถ้าเจอกล้องหลังที่ดีที่สุด
-      if (bestcamera != null) {
-        selectedcamera = cameralist.indexOf(bestcamera);
+      // เช็ค Location service //
+      final serviceenabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceenabled) {
         if (kDebugMode) {
-          print("===>> [status] Best Back Camera index = $selectedcamera (zoom: $maxzoom)");
+          print('===>> Location service disabled');
         }
+        return;
       }
-    } catch (error) {
+      // เช็ค Location service //
+
+      // เช็ค + ขอ permission //
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (kDebugMode) {
+          print('===>> Location permission denied forever');
+        }
+        return;
+      }
+      // เช็ค + ขอ permission //
+
+      // ดึงตำแหน่งจริงจาก GPS //
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
       if (kDebugMode) {
-        print("===>> [error] selectBestBackCamera error: $error");
+        print('===>> Current location: ${position.latitude}, ${position.longitude}');
+      }
+      // ดึงตำแหน่งจริงจาก GPS //
+
+      // ส่งพิกัดให้ MapController //
+      mapcontroller.setGoogleLatLng(gm.LatLng(position.latitude, position.longitude));
+      // ส่งพิกัดให้ MapController //
+    } catch (e) {
+      if (kDebugMode) {
+        print('===>> openMapLocation error: $e');
       }
     }
   }
-  // ===== เลือกกล้อง ===== //
-
-  // ===== เซ็ทแฟลชกล้อง ===== //
-  Future setFlashCamera() async {
-    try {
-      if (cameracontroller == null) {
-        return;
-      }
-      // กล้องหน้าปิดแฟลชทันที
-      if (cameracontroller!.description.lensDirection == CameraLensDirection.front) {
-        statusflashmode.value = FlashMode.off;
-        if (kDebugMode) {
-          print('===>> [status] มีการสลับเป็นกล้องหน้า: $statusflashmode');
-        }
-        return;
-      }
-
-      // กล้องหลังตั้งค่าตามที่เลือก
-      try {
-        await cameracontroller!.setFlashMode(statusflashmode.value);
-      } catch (_) {
-        statusflashmode.value = FlashMode.off;
-      }
-    } catch (error) {
-      if (kDebugMode) {
-        print('===>> [error] setFlashCamera: $error');
-      }
-    }
-  }
-  // ===== เซ็ทแฟลชกล้อง ===== //
 
   // ===== โหลดและเปิดกล้อง ===== //
   Future openCamera() async {
@@ -758,34 +808,83 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   }
   // ===== สลับกล้อง ===== //
 
-  // ===== สลับแฟลช ===== //
-  Future takeFlash() async {
+  // ===== เลือกกล้อง ===== //
+  Future selectBestBackCamera() async {
+    try {
+      if (cameralist.isEmpty) {
+        return;
+      }
+
+      final backcamera = cameralist
+          .where((c) => c.lensDirection == CameraLensDirection.back)
+          .toList();
+
+      if (backcamera.isEmpty) {
+        selectedcamera = 0;
+        return;
+      }
+
+      double maxzoom = -1;
+      CameraDescription? bestcamera;
+
+      for (final camera in backcamera) {
+        final status = CameraController(
+          camera,
+          ResolutionPreset.max,
+          imageFormatGroup: ImageFormatGroup.jpeg,
+        );
+        await status.initialize();
+
+        final zoomlevel = await status.getMaxZoomLevel();
+        if (zoomlevel > maxzoom) {
+          maxzoom = zoomlevel;
+          bestcamera = camera;
+        }
+        await status.dispose();
+      }
+      // ถ้าเจอกล้องหลังที่ดีที่สุด
+      if (bestcamera != null) {
+        selectedcamera = cameralist.indexOf(bestcamera);
+        if (kDebugMode) {
+          print("===>> [status] Best Back Camera index = $selectedcamera (zoom: $maxzoom)");
+        }
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        print("===>> [error] selectBestBackCamera error: $error");
+      }
+    }
+  }
+  // ===== เลือกกล้อง ===== //
+
+  // ===== เซ็ทแฟลชกล้อง ===== //
+  Future setFlashCamera() async {
     try {
       if (cameracontroller == null) {
         return;
       }
-
-      if (statusflashmode.value == FlashMode.off) {
-        statusflashmode.value = FlashMode.auto;
-      } else if (statusflashmode.value == FlashMode.auto) {
-        statusflashmode.value = FlashMode.torch;
-      } else {
+      // กล้องหน้าปิดแฟลชทันที
+      if (cameracontroller!.description.lensDirection == CameraLensDirection.front) {
         statusflashmode.value = FlashMode.off;
+        if (kDebugMode) {
+          print('===>> [status] มีการสลับเป็นกล้องหน้า: $statusflashmode');
+        }
+        return;
       }
 
-      if (cameracontroller!.value.isInitialized) {
+      // กล้องหลังตั้งค่าตามที่เลือก
+      try {
         await cameracontroller!.setFlashMode(statusflashmode.value);
-      }
-      if (kDebugMode) {
-        print('===>> [status] สลับแฟลช Switch To : $statusflashmode');
+      } catch (_) {
+        statusflashmode.value = FlashMode.off;
       }
     } catch (error) {
       if (kDebugMode) {
-        print('===>> [error] takeFlash: $error');
+        print('===>> [error] setFlashCamera: $error');
       }
     }
   }
-  // ===== สลับแฟลช ===== //
+  // ===== เซ็ทแฟลชกล้อง ===== //
 
   // ===== ฟังก์ชันคำนวนหมุนองศาหน้าจอ ===== //
   void rotation() {
@@ -847,6 +946,35 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   }
   // ===== โฟกัส ===== //
 
+  // ===== สลับแฟลช ===== //
+  Future takeFlash() async {
+    try {
+      if (cameracontroller == null) {
+        return;
+      }
+
+      if (statusflashmode.value == FlashMode.off) {
+        statusflashmode.value = FlashMode.auto;
+      } else if (statusflashmode.value == FlashMode.auto) {
+        statusflashmode.value = FlashMode.torch;
+      } else {
+        statusflashmode.value = FlashMode.off;
+      }
+
+      if (cameracontroller!.value.isInitialized) {
+        await cameracontroller!.setFlashMode(statusflashmode.value);
+      }
+      if (kDebugMode) {
+        print('===>> [status] สลับแฟลช Switch To : $statusflashmode');
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> [error] takeFlash: $error');
+      }
+    }
+  }
+  // ===== สลับแฟลช ===== //
+
   // ===== ซูม ===== //
   Future initZoom() async {
     minzoom = await cameracontroller!.getMinZoomLevel();
@@ -874,8 +1002,9 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   // ===== ปรับแสง ===== //
 
+  // ===== ถ่ายภาพ ===== //
   Future takePicture() async {
-    if (!layoutReady) {
+    if (!layoutready) {
       if (kDebugMode) {
         print('===>> takePicture blocked: layout not ready');
       }
@@ -985,6 +1114,410 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       if (kDebugMode) print("===>> [error] takePicture: $error");
     }
   }
+  // ===== ถ่ายภาพ ===== //
+
+  // === ถ่ายภาพ Map === //
+  Future<Uint8List?> captureGoogleMapBytes() async {
+    try {
+      final controller = mapcontroller.googlemapcontroller.value;
+      if (controller == null) return null;
+
+      // รอ map render นิ่งจริง (กันภาพเทา)
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final bytes = await controller.takeSnapshot();
+      if (bytes == null || bytes.isEmpty) return null;
+
+      if (kDebugMode) {
+        print('===>> GoogleMap snapshot captured: ${bytes.length}');
+      }
+
+      return bytes;
+    } catch (e) {
+      if (kDebugMode) {
+        print('===>> captureGoogleMapBytes error: $e');
+      }
+      return null;
+    }
+  }
+  // === ถ่ายภาพ Map === //
+
+  // === ถ่ายภาพ text === //
+  Future<Uint8List> captureText(GlobalKey key) async {
+    await Future.delayed(const Duration(milliseconds: 16));
+
+    final boundary = key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+
+    final image = await boundary.toImage(pixelRatio: 3); // คม
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData!.buffer.asUint8List();
+  }
+  // === ถ่ายภาพ text === //
+
+  Future addTaskToQueue(ProcessImage task) async {
+    taskqueue.add(task);
+    processingcount.value++;
+    await savePendingTasksQueue();
+
+    if (!processingqueue) {
+      processQueue();
+    }
+  }
+
+  Future savePendingTasksQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = taskqueue.map((e) => e.toJson()).toList();
+    await prefs.setString('pendingTasksQueue', jsonEncode(jsonList));
+  }
+
+  Future loadPendingTasksQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString('pendingTasksQueue');
+    if (str != null) {
+      final list = jsonDecode(str) as List;
+      taskqueue = list.map((e) => ProcessImage.fromJson(e)).toList();
+
+      if (taskqueue.isNotEmpty && !processingqueue) {
+        processQueue();
+      }
+    }
+  }
+
+  Future processQueue() async {
+    if (processingqueue) return;
+    processingqueue = true;
+
+    try {
+      while (taskqueue.isNotEmpty) {
+        final task = taskqueue.first;
+
+        await processTask(task);
+
+        taskqueue.removeAt(0);
+        await savePendingTasksQueue();
+      }
+    } finally {
+      processingqueue = false;
+    }
+  }
+
+  Future processTask(ProcessImage task) async {
+    if (kDebugMode) {
+      print("===>> Process task: Start");
+    }
+    // ป้องกันแคส
+    if (lastconstraints.value == null) {
+      if (kDebugMode) {
+        print("===>> skip processTask: lastconstraints is null");
+      }
+      return;
+    }
+
+    try {
+      final stopwatch0 = Stopwatch()..start(); // เริ่มจับเวลา
+
+      final pw = lastconstraints.value!.maxWidth;
+      final ph = lastconstraints.value!.maxHeight;
+
+      if (pw <= 0 || ph <= 0) {
+        if (kDebugMode) {
+          print('===>> invalid preview size: $pw x $ph');
+        }
+        return;
+      }
+
+      File file = File(task.rawfilepath);
+
+      Uint8List bytes = await file.readAsBytes();
+
+      final int angle = convertRotation(task.rotationangle ?? 0);
+
+      final bool camerafront =
+          cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
+
+      if (logobytescache == null) {
+        await preloadLogo(); // กันพลาด
+      }
+
+      final Uint8List logobytes = logobytescache!;
+
+      // ============================
+      // STEP 1 : compress + rotate (main isolate เท่านั้น)
+      // ============================
+      if (task.step <= 1) {
+        bytes = await FlutterImageCompress.compressWithList(
+          bytes,
+          rotate: camerafront ? 0 : angle, //กล้องหน้าไม่ rotate ที่นี่
+          quality: 92,
+          keepExif: false,
+        );
+
+        await file.writeAsBytes(bytes, flush: true);
+
+        task.step = 1;
+        await savePendingTasksQueue();
+      }
+
+      // ============================
+      // STEP 2 : isolate (image package only)
+      // ============================
+
+      if (task.textoverlaybytes == null) {
+        task.step = 2;
+        await savePendingTasksQueue();
+        return;
+      }
+
+      final logolayout = getLogoLayoutForImage();
+      final maplayout = getMapLayout(task.rotationangle ?? 0);
+      final textlayout = getTextLayout(task.rotationangle ?? 0);
+
+      if (task.step <= 2) {
+        bytes = await compute(
+          processImageIsolate,
+          ImageProcessPayload(
+            bytes: bytes,
+            camerafront: camerafront,
+            previewwidth: pw,
+            previewheight: ph,
+            logobytes: logobytes,
+            mapbytes: task.mapbytes,
+            rotationangle: task.rotationangle ?? 0,
+
+            textOverlayBytes: task.textoverlaybytes!,
+
+            //logo
+            logouiwidth: logouiwidth,
+            logouitop: logolayout.xtop,
+            logouibottom: logolayout.xbottom,
+            logouileft: logolayout.yleft,
+            logouiright: logolayout.yright,
+            logouiangle: logolayout.angle,
+
+            //map
+            mapuiwidth: mapuiwidth,
+            mapuitop: maplayout.xtop,
+            mapuibottom: maplayout.xbottom,
+            mapuileft: maplayout.yleft,
+            mapuiright: maplayout.yright,
+            mapuiangle: maplayout.angle,
+
+            // text
+            textuitop: textlayout.xtop,
+            textuibottom: textlayout.xbottom,
+            textuileft: textlayout.yleft,
+            textuiright: textlayout.yright,
+            // textuiangle: textlayout.angle,
+          ),
+        );
+
+        await file.writeAsBytes(bytes, flush: true);
+
+        task.step = 2;
+        await savePendingTasksQueue();
+      }
+
+      stopwatch0.stop();
+      if (kDebugMode) {
+        print("===>> Process task image: ${stopwatch0.elapsedMilliseconds} ms");
+      }
+
+      // ============================
+      // STEP 3 : Save Album
+      // ============================
+
+      if (task.step <= 3) {
+        await saveImageToAlbum(file, task.filename);
+
+        task.step = 3;
+        await savePendingTasksQueue();
+      }
+
+      // ลบ raw file
+      try {
+        final raw = File(task.rawfilepath);
+        if (await raw.exists()) await raw.delete();
+      } catch (_) {}
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> error processTask: $error');
+      }
+    } finally {
+      processingcount.value--;
+    }
+  }
+
+  int convertRotation(int angle) {
+    switch (angle) {
+      case 1:
+        return -90; // ซ้าย
+      case 3:
+        return 90; // ขวา
+      case 2:
+        return 180; // กลับหัว
+      default:
+        return 0; // ปกติ
+    }
+  }
+
+  // === ฟังก์ชันสำหรับบันทึกรูปลงอัลบั้ม (ใช้ gal + photo manager) === //
+  Future saveImageToAlbum(File file, String filename) async {
+    try {
+      if (Platform.isAndroid) {
+        final androidinfo = await DeviceInfoPlugin().androidInfo;
+        final sdkint = androidinfo.version.sdkInt;
+
+        if (sdkint <= 28) {
+          // Android 9 หรือต่ำกว่าใช้ legacy save
+          if (kDebugMode) print("===>> Android <=28, legacy save");
+
+          final status = await Permission.storage.request();
+          if (!status.isGranted) {
+            if (kDebugMode) print("===>> Storage permission denied");
+            return;
+          }
+
+          final folderpath = "/storage/emulated/0/Pictures/$albumname";
+          final folder = Directory(folderpath);
+          if (!await folder.exists()) await folder.create(recursive: true);
+
+          final originalname = file.path.split("/").last;
+          final newpath = "$folderpath/$originalname";
+          final newfile = await file.copy(newpath);
+          await ImageGallerySaverPlus.saveFile(newfile.path);
+
+          const platform = MethodChannel("com.sakcamera.media_scan");
+          await platform.invokeMethod("scanFile", {"path": newfile.path});
+
+          if (kDebugMode) print("===>> [legacy save] > ${newfile.path}");
+          return;
+        } else if (sdkint == 29 || sdkint == 30) {
+          final originalname = file.path.split("/").last;
+          // Android 10 ใช้ Scoped Storage
+          if (kDebugMode) print("===>> Android 10, scoped storage save");
+
+          final haspermission = await PhotoManager.requestPermissionExtend();
+          if (!haspermission.isAuth) return;
+
+          await PhotoManager.editor.saveImageWithPath(
+            file.path,
+            title: originalname,
+            relativePath: "Pictures/$albumname",
+          );
+
+          final gallery = Get.find<GalleryController>();
+          await gallery.insertByFileName(filename);
+
+          if (kDebugMode) {
+            print("===>> [scoped save Android 10] > ${file.path}");
+          }
+          return;
+        } else {
+          // Android 11+ → ใช้ Gal
+          if (kDebugMode) print("===>> Android >=11, using Gal");
+
+          bool hasaccessapk = await Gal.hasAccess(toAlbum: true);
+          if (!hasaccessapk) await Gal.requestAccess(toAlbum: true);
+          await Gal.putImage(file.path, album: albumname);
+
+          final gallery = Get.find<GalleryController>();
+          await gallery.insertByFileName(filename);
+
+          if (kDebugMode) print("===>> [Gal save Android >=11] > ${file.path}");
+          return;
+        }
+      }
+
+      // iOS → ใช้ Gal
+      bool hasaccessios = await Gal.hasAccess(toAlbum: true);
+      if (!hasaccessios) await Gal.requestAccess(toAlbum: true);
+      await Gal.putImage(file.path, album: albumname);
+
+      final gallery = Get.find<GalleryController>();
+      await gallery.insertByFileName(filename);
+
+      if (kDebugMode) print("===>> [Gal save iOS] > ${file.path}");
+    } on GalException catch (e) {
+      if (kDebugMode) print("GalException: ${e.type.message}");
+    } catch (e) {
+      if (kDebugMode) print("Unknown error: $e");
+    }
+  }
+  // === ฟังก์ชันสำหรับบันทึกรูปลงอัลบั้ม (ใช้ gal + photo manager) === //
+
+  Future submitLogout() async {
+    try {
+      final result = await MainDialog.dialogPopup(
+        context!,
+        true,
+        'warning'.tr,
+        message: 'warning_close_app'.tr,
+        confirmbutton: 'ok'.tr,
+        closebutton: 'cancel'.tr,
+      );
+
+      if (result == true) {
+        Get.offAllNamed('/login');
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> error Logout submitLogout: $error');
+      }
+    }
+  }
+
+  //===>> ฟังก์ชันส่วนของวันเดือนปีภาษาไทย
+  Map<String, String> formatThaiDateTime(DateTime now) {
+    const weekdays = [
+      '',
+      'วันจันทร์',
+      'วันอังคาร',
+      'วันพุธ',
+      'วันพฤหัสบดี',
+      'วันศุกร์',
+      'วันเสาร์',
+      'วันอาทิตย์',
+    ];
+    const months = [
+      '',
+      'มกราคม',
+      'กุมภาพันธ์',
+      'มีนาคม',
+      'เมษายน',
+      'พฤษภาคม',
+      'มิถุนายน',
+      'กรกฎาคม',
+      'สิงหาคม',
+      'กันยายน',
+      'ตุลาคม',
+      'พฤศจิกายน',
+      'ธันวาคม',
+    ];
+
+    final buddhistyear = now.year + 543;
+    final weekday = weekdays[now.weekday];
+    final month = months[now.month];
+
+    final formatdate = "$weekday ที่ ${now.day} $month พ.ศ. $buddhistyear";
+    final formattime =
+        "เวลา ${now.hour.toString().padLeft(2, '0')}:"
+        "${now.minute.toString().padLeft(2, '0')}:"
+        "${now.second.toString().padLeft(2, '0')} น.";
+    return {'date': formatdate, 'time': formattime};
+  }
+  //===>> ฟังก์ชันส่วนของวันเดือนปีภาษาไทย
+
+  // === เก็บค่า logo === //
+  Future preloadLogo() async {
+    if (logobytescache != null) {
+      return;
+    }
+
+    final data = await rootBundle.load(MainConstant.saklogo);
+    logobytescache = data.buffer.asUint8List();
+  }
+  // === เก็บค่า logo === //
 
   MarginDrawImg getLogoLayout(int rotation) {
     switch (rotation) {
@@ -1118,518 +1651,5 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   MarginDrawImg getLogoLayoutForImage() {
     return MarginDrawImg(name: 'image', xtop: 5, xbottom: 0, yleft: 0, yright: 5, angle: 0);
-  }
-
-  Future addTaskToQueue(ProcessImage task) async {
-    taskqueue.add(task);
-    processingcount.value++;
-    await savePendingTasksQueue();
-
-    if (!processingqueue) {
-      processQueue();
-    }
-  }
-
-  Future savePendingTasksQueue() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = taskqueue.map((e) => e.toJson()).toList();
-    await prefs.setString('pendingTasksQueue', jsonEncode(jsonList));
-  }
-
-  Future loadPendingTasksQueue() async {
-    final prefs = await SharedPreferences.getInstance();
-    final str = prefs.getString('pendingTasksQueue');
-    if (str != null) {
-      final list = jsonDecode(str) as List;
-      taskqueue = list.map((e) => ProcessImage.fromJson(e)).toList();
-
-      if (taskqueue.isNotEmpty && !processingqueue) {
-        processQueue();
-      }
-    }
-  }
-
-  Future processQueue() async {
-    if (processingqueue) return;
-    processingqueue = true;
-
-    try {
-      while (taskqueue.isNotEmpty) {
-        final task = taskqueue.first;
-
-        await processTask(task);
-
-        taskqueue.removeAt(0);
-        await savePendingTasksQueue();
-      }
-    } finally {
-      processingqueue = false;
-    }
-  }
-
-  Future processTask(ProcessImage task) async {
-    if (kDebugMode) {
-      print("===>> Process task: Start");
-    }
-    // ป้องกันแคส
-    if (lastconstraints.value == null) {
-      if (kDebugMode) {
-        print("===>> skip processTask: lastconstraints is null");
-      }
-      return;
-    }
-
-    try {
-      final stopwatch0 = Stopwatch()..start(); // เริ่มจับเวลา
-
-      final pw = lastconstraints.value!.maxWidth;
-      final ph = lastconstraints.value!.maxHeight;
-
-      if (pw <= 0 || ph <= 0) {
-        if (kDebugMode) {
-          print('===>> invalid preview size: $pw x $ph');
-        }
-        return;
-      }
-
-      File file = File(task.rawfilepath);
-      Uint8List bytes = await file.readAsBytes();
-
-      final int angle = convertRotation(task.rotationangle ?? 0);
-      final bool camerafront =
-          cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
-
-      if (logobytescache == null) {
-        await preloadLogo(); // กันพลาด
-      }
-
-      final Uint8List logobytes = logobytescache!;
-
-      // ============================
-      // STEP 1 : compress + rotate (main isolate เท่านั้น)
-      // ============================
-      if (task.step <= 1) {
-        bytes = await FlutterImageCompress.compressWithList(
-          bytes,
-          rotate: camerafront ? 0 : angle, //กล้องหน้าไม่ rotate ที่นี่
-          quality: 92,
-          keepExif: false,
-        );
-
-        await file.writeAsBytes(bytes, flush: true);
-
-        task.step = 1;
-        await savePendingTasksQueue();
-      }
-
-      // ============================
-      // STEP 2 : isolate (image package only)
-
-      // if (task.textoverlaybytes == null) {
-      //   if (kDebugMode) {
-      //     print('===>> skip process: textoverlaybytes is null');
-      //   }
-      //   return;
-      // }
-      if (task.textoverlaybytes == null) {
-        task.step = 2;
-        await savePendingTasksQueue();
-        return;
-      }
-
-      final logolayout = getLogoLayoutForImage();
-      final maplayout = getMapLayout(task.rotationangle ?? 0);
-      final textlayout = getTextLayout(task.rotationangle ?? 0);
-
-      if (task.step <= 2) {
-        bytes = await compute(
-          processImageIsolate,
-          ImageProcessPayload(
-            bytes: bytes,
-            camerafront: camerafront,
-            previewwidth: pw,
-            previewheight: ph,
-            logobytes: logobytes,
-            mapbytes: task.mapbytes,
-            rotationangle: task.rotationangle ?? 0,
-
-            textOverlayBytes: task.textoverlaybytes!,
-
-            //logo
-            logouiwidth: logouiwidth,
-            logouitop: logolayout.xtop,
-            logouibottom: logolayout.xbottom,
-            logouileft: logolayout.yleft,
-            logouiright: logolayout.yright,
-            logouiangle: logolayout.angle,
-
-            //map
-            mapuiwidth: mapuiwidth,
-            mapuitop: maplayout.xtop,
-            mapuibottom: maplayout.xbottom,
-            mapuileft: maplayout.yleft,
-            mapuiright: maplayout.yright,
-            mapuiangle: maplayout.angle,
-
-            // text
-            textuitop: textlayout.xtop,
-            textuibottom: textlayout.xbottom,
-            textuileft: textlayout.yleft,
-            textuiright: textlayout.yright,
-            // textuiangle: textlayout.angle,
-          ),
-        );
-
-        await file.writeAsBytes(bytes, flush: true);
-
-        task.step = 2;
-        await savePendingTasksQueue();
-      }
-
-      stopwatch0.stop();
-      if (kDebugMode) {
-        print("===>> Process task image: ${stopwatch0.elapsedMilliseconds} ms");
-      }
-
-      // ============================
-      // STEP 5 : Save Album
-      // ============================
-
-      if (task.step <= 3) {
-        await saveImageToAlbum(file, task.filename);
-
-        task.step = 3;
-        await savePendingTasksQueue();
-      }
-
-      // ลบ raw file
-      try {
-        final raw = File(task.rawfilepath);
-        if (await raw.exists()) await raw.delete();
-      } catch (_) {}
-    } catch (error) {
-      if (kDebugMode) {
-        print('===>> error processTask: $error');
-      }
-    } finally {
-      processingcount.value--;
-    }
-  }
-
-  int convertRotation(int angle) {
-    switch (angle) {
-      case 1:
-        return -90; // ซ้าย
-      case 3:
-        return 90; // ขวา
-      case 2:
-        return 180; // กลับหัว
-      default:
-        return 0; // ปกติ
-    }
-  }
-
-  // ฟังก์ชันสำหรับบันทึกรูปลงอัลบั้ม (ใช้ gal)
-  Future saveImageToAlbum(File file, String filename) async {
-    try {
-      if (Platform.isAndroid) {
-        final androidinfo = await DeviceInfoPlugin().androidInfo;
-        final sdkint = androidinfo.version.sdkInt;
-
-        if (sdkint <= 28) {
-          // Android 9 หรือต่ำกว่าใช้ legacy save
-          if (kDebugMode) print("===>> Android <=28, legacy save");
-
-          final status = await Permission.storage.request();
-          if (!status.isGranted) {
-            if (kDebugMode) print("===>> Storage permission denied");
-            return;
-          }
-
-          final folderpath = "/storage/emulated/0/Pictures/$albumname";
-          final folder = Directory(folderpath);
-          if (!await folder.exists()) await folder.create(recursive: true);
-
-          final originalname = file.path.split("/").last;
-          final newpath = "$folderpath/$originalname";
-          final newfile = await file.copy(newpath);
-          await ImageGallerySaverPlus.saveFile(newfile.path);
-
-          const platform = MethodChannel("com.sakcamera.media_scan");
-          await platform.invokeMethod("scanFile", {"path": newfile.path});
-
-          if (kDebugMode) print("===>> [legacy save] > ${newfile.path}");
-          return;
-        } else if (sdkint == 29 || sdkint == 30) {
-          final originalname = file.path.split("/").last;
-          // Android 10 ใช้ Scoped Storage
-          if (kDebugMode) print("===>> Android 10, scoped storage save");
-
-          final haspermission = await PhotoManager.requestPermissionExtend();
-          if (!haspermission.isAuth) return;
-
-          await PhotoManager.editor.saveImageWithPath(
-            file.path,
-            title: originalname,
-            relativePath: "Pictures/$albumname",
-          );
-
-          final gallery = Get.find<GalleryController>();
-          await gallery.insertByFileName(filename);
-
-          if (kDebugMode) {
-            print("===>> [scoped save Android 10] > ${file.path}");
-          }
-          return;
-        } else {
-          // Android 11+ → ใช้ Gal
-          if (kDebugMode) print("===>> Android >=11, using Gal");
-
-          bool hasaccessapk = await Gal.hasAccess(toAlbum: true);
-          if (!hasaccessapk) await Gal.requestAccess(toAlbum: true);
-          await Gal.putImage(file.path, album: albumname);
-
-          final gallery = Get.find<GalleryController>();
-          await gallery.insertByFileName(filename);
-
-          if (kDebugMode) print("===>> [Gal save Android >=11] > ${file.path}");
-          return;
-        }
-      }
-
-      // iOS → ใช้ Gal
-      bool hasaccessios = await Gal.hasAccess(toAlbum: true);
-      if (!hasaccessios) await Gal.requestAccess(toAlbum: true);
-      await Gal.putImage(file.path, album: albumname);
-
-      final gallery = Get.find<GalleryController>();
-      await gallery.insertByFileName(filename);
-
-      if (kDebugMode) print("===>> [Gal save iOS] > ${file.path}");
-    } on GalException catch (e) {
-      if (kDebugMode) print("GalException: ${e.type.message}");
-    } catch (e) {
-      if (kDebugMode) print("Unknown error: $e");
-    }
-  }
-
-  // === เก็บค่า logo === //
-  Future preloadLogo() async {
-    if (logobytescache != null) {
-      return;
-    }
-
-    final data = await rootBundle.load(MainConstant.saklogo);
-    logobytescache = data.buffer.asUint8List();
-  }
-  // === เก็บค่า logo === //
-
-  // === เก็บค่า Map === //
-  Future<Uint8List?> captureGoogleMapBytes() async {
-    try {
-      final controller = mapcontroller.googlemapcontroller.value;
-      if (controller == null) return null;
-
-      // รอ map render นิ่งจริง (กันภาพเทา)
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      final bytes = await controller.takeSnapshot();
-      if (bytes == null || bytes.isEmpty) return null;
-
-      if (kDebugMode) {
-        print('===>> GoogleMap snapshot captured: ${bytes.length}');
-      }
-
-      return bytes;
-    } catch (e) {
-      if (kDebugMode) {
-        print('===>> captureGoogleMapBytes error: $e');
-      }
-      return null;
-    }
-  }
-  // === เก็บค่า Map === //
-
-  //===>> ฟังก์ชันส่วนของวันเดือนปีภาษาไทย
-  Map<String, String> formatThaiDateTime(DateTime now) {
-    const weekdays = [
-      '',
-      'วันจันทร์',
-      'วันอังคาร',
-      'วันพุธ',
-      'วันพฤหัสบดี',
-      'วันศุกร์',
-      'วันเสาร์',
-      'วันอาทิตย์',
-    ];
-    const months = [
-      '',
-      'มกราคม',
-      'กุมภาพันธ์',
-      'มีนาคม',
-      'เมษายน',
-      'พฤษภาคม',
-      'มิถุนายน',
-      'กรกฎาคม',
-      'สิงหาคม',
-      'กันยายน',
-      'ตุลาคม',
-      'พฤศจิกายน',
-      'ธันวาคม',
-    ];
-
-    final buddhistyear = now.year + 543;
-    final weekday = weekdays[now.weekday];
-    final month = months[now.month];
-
-    final formatdate = "$weekday ที่ ${now.day} $month พ.ศ. $buddhistyear";
-    final formattime =
-        "เวลา ${now.hour.toString().padLeft(2, '0')}:"
-        "${now.minute.toString().padLeft(2, '0')}:"
-        "${now.second.toString().padLeft(2, '0')} น.";
-    return {'date': formatdate, 'time': formattime};
-  }
-  //===>> ฟังก์ชันส่วนของวันเดือนปีภาษาไทย
-
-  Future<Uint8List> captureText(GlobalKey key) async {
-    await Future.delayed(const Duration(milliseconds: 16));
-
-    final boundary = key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-
-    final image = await boundary.toImage(pixelRatio: 3); // คม
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    return byteData!.buffer.asUint8List();
-  }
-
-  @override
-  void onInit() {
-    super.onInit();
-
-    final devicecontroller = Get.find<DeviceController>();
-
-    usercontroller = Get.find<UserController>();
-    mapcontroller = Get.put(MapController());
-    gallerycontroller = Get.put(GalleryController());
-
-    if (kDebugMode) {
-      print("===>> [status] Device brand is: ${devicecontroller.manufacture.value}");
-    }
-  }
-
-  // === เปิดกล้องเมื่อพร้อม === //
-  @override
-  void onReady() async {
-    if (!addobserver) {
-      WidgetsBinding.instance.addObserver(this);
-      addobserver = true;
-    }
-    // โหลด User ใหม่ทุกครั้งที่เข้าหน้ากล้อง
-    final usercontroller = Get.find<UserController>();
-    usercontroller.loadUserFromLocal();
-    if (!initialize) {
-      initialize = true;
-      startApp();
-    }
-
-    // startApp();
-    super.onReady();
-  }
-  // === เปิดกล้องเมื่อพร้อม === //
-
-  // === ปิดกล้อง ===//
-  @override
-  void onClose() {
-    WidgetsBinding.instance.removeObserver(this);
-    try {
-      cameracontroller?.dispose();
-    } catch (_) {}
-    sensorsub?.cancel();
-    super.onClose();
-  }
-  // === ปิดกล้อง ===//
-
-  // === จัดการ lifecycle ของแอป === //
-  @override
-  Future didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (requestpermission) {
-      // ข้าม ไม่ต้องจัดการ lifecycle ตอนนี้
-      if (kDebugMode) {
-        print("===>> [status] skip lifecycle เพราะกำลังขอ permission");
-      }
-      return;
-    }
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      try {
-        if (!requestpermission) {
-          statusresumed = false;
-
-          //หยุดกล้องขณะยุบแอปพลิเคชัน
-          if (cameracontroller != null) {
-            await cameracontroller!.pausePreview();
-            if (kDebugMode) {
-              print('===>> [status] Camera pausePreview สถานะ: ยุบแอปพลิเคชัน');
-              print('===>> [status] Camera (state: $state)');
-            }
-
-            statuscamera.value = false;
-          }
-        }
-      } catch (error) {
-        if (kDebugMode) {
-          print('===>> [error] state AppLifecycleState.paused: $error');
-        }
-      }
-    } else if (state == AppLifecycleState.resumed && !statusresumed) {
-      try {
-        if (!requestpermission) {
-          if (resumedfromsetting) {
-            resumedfromsetting = false; // reset flag
-            bool camerapermission = await Permission.camera.isGranted;
-            bool microphonepermission = await Permission.microphone.isGranted;
-
-            if (camerapermission || microphonepermission) {
-              cameradialogshowing = false; // reset camera Dialog กันการเด้งซ้อน
-              denieddialogshowing = false; // reset Denied Dialog กันการเด้งซ้อน
-              settingdialogshowing = false; // reset Setting Dialog กันการเด้งซ้อน
-
-              requestpermission = false; // คืนค่าปกติ สถานะไม่ให้เรียก lifecycle
-
-              await startApp(statusprocess: true);
-            }
-          }
-
-          if (!statuscamera.value) {
-            // เปิดกล้องใหม่
-            await openCamera();
-
-            //setflash
-            await setFlashCamera();
-          }
-
-          if (kDebugMode) {
-            print('===>> [status] เรียก camera AppLifecycleState');
-          }
-
-          statusresumed = true;
-        } else {
-          if (resumedfromsetting) {
-            resumedfromsetting = false;
-          }
-        }
-      } catch (error) {
-        if (kDebugMode) {
-          print('===>> [error] state AppLifecycleState.resumed: $error');
-        }
-      }
-
-      // if (camerapermission.value && microphonepermission.value) {
-      //   initCamera();
-      //   if (kDebugMode) {
-      //     print('Camera reinitialized after resume');
-      //   }
-      // }
-    }
-    super.didChangeAppLifecycleState(state);
   }
 }
