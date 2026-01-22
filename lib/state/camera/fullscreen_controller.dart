@@ -15,6 +15,8 @@ class FullscreenController extends GetxController {
   bool initialpageused = false;
   bool animatingfromthumb = false;
 
+  final RxBool haschange = false.obs;
+
   FullscreenController(this.initialindex) {
     currentindex = initialindex.obs;
   }
@@ -57,27 +59,51 @@ class FullscreenController extends GetxController {
 
   AssetEntity get asset => gallery.assets[currentindex.value];
 
-  Future<bool> deleteImage() async {
+  // Future<bool> deleteImage() async {
+  //   final asset = gallery.assets[currentindex.value];
+
+  //   final result = await PhotoManager.editor.deleteWithIds([asset.id]);
+  //   if (result.isNotEmpty) {
+  //     // ลบจาก state กลาง
+  //     gallery.assets.removeAt(currentindex.value);
+
+  //     // mark ว่ามีการเปลี่ยนแปลง
+  //     hasChanged.value = true;
+
+  //     // ปรับ index
+  //     if (currentindex.value >= gallery.assets.length && gallery.assets.isNotEmpty) {
+  //       currentindex.value = gallery.assets.length - 1;
+  //     }
+
+  //     // ไม่มีรูปแล้ว → ปิดหน้า
+  //     // if (gallery.assets.isEmpty) {
+  //     //   Get.back(result: true);
+  //     // }
+  //     // return true;
+
+  //     // return gallery.assets.isEmpty; // << บอกแค่ว่าว่างแล้ว
+  //     // ถ้าไม่มีรูปแล้ว → ออกจากหน้าเลย
+  //     if (gallery.assets.isEmpty) {
+  //       Get.back(result: true);
+  //     }
+  //   }
+  //   return false;
+  // }
+  Future deleteImage() async {
     final asset = gallery.assets[currentindex.value];
 
     final result = await PhotoManager.editor.deleteWithIds([asset.id]);
-    if (result.isNotEmpty) {
-      // ลบจาก source กลาง
-      gallery.assets.removeAt(currentindex.value);
+    if (result.isEmpty) return;
 
-      // ปรับ index
-      if (currentindex.value >= gallery.assets.length && gallery.assets.isNotEmpty) {
-        currentindex.value = gallery.assets.length - 1;
-      }
+    // ลบจาก state กลาง
+    gallery.assets.removeAt(currentindex.value);
 
-      // ไม่มีรูปแล้ว → ปิดหน้า
-      // if (gallery.assets.isEmpty) {
-      //   Get.back(result: true);
-      // }
-      // return true;
+    // mark ว่ามีการเปลี่ยนแปลง
+    haschange.value = true;
 
-      return gallery.assets.isEmpty; // << บอกแค่ว่าว่างแล้ว
+    // ปรับ index
+    if (currentindex.value >= gallery.assets.length && gallery.assets.isNotEmpty) {
+      currentindex.value = gallery.assets.length - 1;
     }
-    return false;
   }
 }

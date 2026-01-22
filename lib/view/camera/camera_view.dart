@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
@@ -1242,73 +1243,97 @@ class Camera extends GetWidget<CameraPageController> {
           width: 65,
           height: 65,
           child: ElevatedButton(
-            onPressed: () {
-              Get.toNamed('gallery');
+            onPressed: () async {
+              // Get.toNamed('gallery');
+              final result = await Get.toNamed('gallery');
+
+              if (result == true) {
+                final gallery = Get.find<GalleryController>();
+
+                // reload state หลังลบ
+                await gallery.loadImages();
+              }
             },
             style: ElevatedButton.styleFrom(
               shape: CircleBorder(),
               padding: EdgeInsets.all(2),
               backgroundColor: MainConstant.white,
             ),
-            child:
-                // Icon(Icons.photo_library, size: 40, color: MainConstant.black),
-                Obx(() {
-                  final gallery = Get.find<GalleryController>();
-                  final bool processingimage = controller.processingcount.value > 0;
+            child: Obx(() {
+              final gallery = Get.find<GalleryController>();
+              final bool processingimage = controller.processingcount.value > 0;
+              final AssetEntity? lastAsset = gallery.lastasset.value;
 
-                  // 1. ไม่มีรูปเลย + ไม่กำลังประมวลผล
-                  if (gallery.assets.isEmpty && !processingimage) {
-                    return Icon(Icons.photo_library, size: 40, color: MainConstant.black);
-                  }
+              // 1. ไม่มีรูปเลย + ไม่กำลังประมวลผล
+              // if (gallery.assets.isEmpty && !processingimage) {
+              //   return Icon(Icons.photo_library, size: 40, color: MainConstant.black);
+              // }
+              if (lastAsset == null && !processingimage) {
+                return Icon(Icons.photo_library, size: 40, color: MainConstant.black);
+              }
 
-                  // 2. ไม่มีรูป + กำลังประมวลผล
-                  if (gallery.assets.isEmpty && processingimage) {
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ClipOval(child: Container(width: 58, height: 58, color: MainConstant.grey)),
-                        LoadingAnimationWidget.threeArchedCircle(
+              // 2. ไม่มีรูป + กำลังประมวลผล
+              // if (gallery.assets.isEmpty && processingimage) {
+              //   return Stack(
+              //     alignment: Alignment.center,
+              //     children: [
+              //       ClipOval(child: Container(width: 58, height: 58, color: MainConstant.grey)),
+              //       LoadingAnimationWidget.threeArchedCircle(color: MainConstant.white, size: 30),
+              //     ],
+              //   );
+              // }
+              if (lastAsset == null && processingimage) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ClipOval(child: Container(width: 58, height: 58, color: MainConstant.grey)),
+                    LoadingAnimationWidget.threeArchedCircle(color: MainConstant.white, size: 30),
+                  ],
+                );
+              }
+
+              // 3. มีรูปแล้ว → ใช้รูปแรก (ล่าสุด)
+              // final lastasset = gallery.assets.first;
+              final AssetEntity previewimage = gallery.lastasset.value ?? gallery.assets.first;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  // ClipOval(
+                  //   child: controller.lastfile.value != null
+                  //       ? Image.file(controller.lastfile.value!)
+                  //       : AssetEntityImage(lastasset, width: 58, height: 58, fit: BoxFit.cover),
+                  // ),
+                  ClipOval(
+                    child: AssetEntityImage(
+                      previewimage,
+                      width: 58,
+                      height: 58,
+                      fit: BoxFit.cover,
+                      isOriginal: false,
+                      thumbnailSize: ThumbnailSize(200, 200),
+                    ),
+                  ),
+
+                  // overlay ตอนกำลัง process
+                  if (processingimage)
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: MainConstant.black.withValues(alpha: 0.4),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: LoadingAnimationWidget.threeArchedCircle(
                           color: MainConstant.white,
                           size: 30,
                         ),
-                      ],
-                    );
-                  }
-
-                  // 3. มีรูปแล้ว → ใช้รูปแรก (ล่าสุด)
-                  final lastasset = gallery.assets.first;
-
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      ClipOval(
-                        child: AssetEntityImage(
-                          lastasset,
-                          width: 58,
-                          height: 58,
-                          fit: BoxFit.cover,
-                        ),
                       ),
-
-                      // overlay ตอนกำลัง process
-                      if (processingimage)
-                        Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(
-                            color: MainConstant.black.withValues(alpha: 0.4),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: LoadingAnimationWidget.threeArchedCircle(
-                              color: MainConstant.white,
-                              size: 30,
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                }),
+                    ),
+                ],
+              );
+            }),
           ),
         ),
       );

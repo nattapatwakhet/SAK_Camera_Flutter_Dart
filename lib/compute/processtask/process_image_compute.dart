@@ -1,24 +1,24 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 class ProcessImage {
   final String rawfilepath;
   final String filename;
-  int step;
-  String? processedfilepath;
-  int? rotationangle;
-  Uint8List? mapbytes;
 
-  Uint8List? textoverlaybytes;
+  int step;
+  final String? processfilepath;
+  final int? rotationangle;
+
+  final Uint8List? mapbytes;
+  final Uint8List? textoverlaybytes;
 
   ProcessImage({
     required this.rawfilepath,
     required this.filename,
     this.step = 0,
-    this.processedfilepath,
+    this.processfilepath,
     this.rotationangle,
-    this.mapbytes,
 
+    this.mapbytes,
     this.textoverlaybytes,
   });
 
@@ -28,9 +28,9 @@ class ProcessImage {
     'filename': filename,
     'step': step,
     'rotationangle': rotationangle,
-    'processedfilepath': processedfilepath,
-    'mapbytes': mapbytes != null ? base64Encode(mapbytes!) : null,
-    'textoverlaybytes': textoverlaybytes != null ? base64Encode(textoverlaybytes!) : null,
+    'processedfilepath': processfilepath,
+    'mapbytes': mapbytes,
+    'textoverlaybytes': textoverlaybytes,
   };
 
   factory ProcessImage.fromJson(Map<String, dynamic> json) {
@@ -39,11 +39,9 @@ class ProcessImage {
       filename: json['filename'],
       step: json['step'],
       rotationangle: json['rotationangle'],
-      processedfilepath: json['processedfilepath'],
-      mapbytes: json['mapbytes'] != null ? base64Decode(json['mapbytes']) : null,
-      textoverlaybytes: json['textoverlaybytes'] != null
-          ? base64Decode(json['textoverlaybytes'])
-          : null,
+      processfilepath: json['processedfilepath'],
+      mapbytes: json['mapbytes'],
+      textoverlaybytes: json['textoverlaybytes'],
     );
   }
 }

@@ -30,6 +30,7 @@ import 'package:path_provider/path_provider.dart';
 
 // Device / Sensor / Location
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:sakcamera_getx/compute/image/prepare_logo.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -146,6 +147,8 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   // ===== camera resource cache ===== //
   img.Image? imglogocache; // cache logo แบบ decode แล้ว (ลดเวลา process)
+  Uint8List? mapsnapshot; // cache map snapshot
+
   Uint8List? mapbytes; // cache map snapshot bytes
   final GlobalKey infotextkey = GlobalKey(); // key สำหรับ capture widget text overlay
   // ===== camera resource cache ===== //
@@ -156,9 +159,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   bool processingqueue = false; // true เมื่อกำลัง process queue
 
   final processingcount = 0.obs; // จำนวนงานที่กำลัง process
-
-  Uint8List? logobytescache; // cache โลโก้แบบ bytes
-  Uint8List? mapsnapshotbytes; // cache map snapshot
 
   //== เก็บค่าตำแหน่ง logo เพื่อไปวาด ==//
   double logouiwidth = 80; // ความกว้าง logo บน UI
@@ -171,6 +171,18 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   // ===== Storage State ===== //
   final String albumname = 'SAK_Camera'; // ชื่ออัลบั้มที่ใช้บันทึกรูป
   // ===== Storage State ===== //
+
+  late Rx<File?> lastfile = Rx<File?>(null);
+
+  PreparedOverlay? preparelogo;
+  PreparedOverlay? preparemap;
+
+  PreparedOverlay? preparelanscapelogo;
+  PreparedOverlay? preparelanscapemap;
+
+  PreparedOverlay? preparetext;
+
+  PreparedOverlay? emptybase;
 
   // ===== Function State ===== //
   @override
@@ -664,9 +676,11 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       // ส่งพิกัดให้ MapController //
       mapcontroller.setGoogleLatLng(gm.LatLng(position.latitude, position.longitude));
       // ส่งพิกัดให้ MapController //
-    } catch (e) {
+
+      mapsnapshot ??= await captureGoogleMapBytes();
+    } catch (error) {
       if (kDebugMode) {
-        print('===>> openMapLocation error: $e');
+        print('===>> [error] openMapLocation: $error');
       }
     }
   }
@@ -1079,39 +1093,46 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       final tempdir = await getTemporaryDirectory();
       final filepath = '${tempdir.path}/$filename';
 
-      final rawfile = await File(rawimage.path).copy(filepath);
+      final rawfileimage = await File(rawimage.path).copy(filepath);
       if (kDebugMode) {
-        print('===>> [status] บันทึกภาพดิบไปที่: ${rawfile.path}');
+        print('===>> [status] บันทึกภาพดิบไปที่: ${rawfileimage.path}');
       }
 
       // --- capture map snapshot ---
-      final mapsnapshotbytes = await captureGoogleMapBytes();
+
+      mapsnapshot ??= await captureGoogleMapBytes();
+      final Uint8List? mapbytes = mapsnapshot;
+      // final Uint8List? mapbytes = await captureGoogleMapBytes();
 
       // normalize map → PNG (กัน isolate พัง)
-      Uint8List? safemapbytes;
+      // Uint8List? safemapbytes;
 
-      if (mapsnapshotbytes != null && mapsnapshotbytes.isNotEmpty) {
-        final img.Image? decoded = img.decodeImage(mapsnapshotbytes);
-        if (decoded != null) {
-          safemapbytes = Uint8List.fromList(img.encodePng(decoded));
-        }
-      }
+      // if (mapsnapshotcache != null) {
+      //   if (mapsnapshotcache!.isNotEmpty) {
+      //     final img.Image? decoded = img.decodeImage(mapsnapshotcache!);
+      //     if (decoded != null) {
+      //       safemapbytes = Uint8List.fromList(img.encodePng(decoded));
+      //     }
+      //   }
+      // }
 
       final textoverlaybytes = await captureText(infotextkey);
 
       // Add to queue
-      final task = ProcessImage(
-        rawfilepath: rawfile.path,
+      final taskimage = ProcessImage(
+        rawfilepath: rawfileimage.path,
         filename: filename,
         step: 0,
         rotationangle: rotationangle.value,
-        mapbytes: safemapbytes,
+        mapbytes: mapbytes,
         textoverlaybytes: textoverlaybytes,
       );
 
-      await addTaskToQueue(task);
+      await addTaskToQueue(taskimage);
     } catch (error) {
-      if (kDebugMode) print("===>> [error] takePicture: $error");
+      if (kDebugMode) {
+        print("===>> [error] takePicture: $error");
+      }
     }
   }
   // ===== ถ่ายภาพ ===== //
@@ -1120,22 +1141,26 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   Future<Uint8List?> captureGoogleMapBytes() async {
     try {
       final controller = mapcontroller.googlemapcontroller.value;
-      if (controller == null) return null;
-
-      // รอ map render นิ่งจริง (กันภาพเทา)
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      final bytes = await controller.takeSnapshot();
-      if (bytes == null || bytes.isEmpty) return null;
-
-      if (kDebugMode) {
-        print('===>> GoogleMap snapshot captured: ${bytes.length}');
+      if (controller == null) {
+        return null;
       }
 
-      return bytes;
-    } catch (e) {
+      // รอ map render นิ่งจริง (กันภาพเทา)
+      // await Future.delayed(const Duration(milliseconds: 300));
+
+      final bytesmap = await controller.takeSnapshot();
+      if (bytesmap == null || bytesmap.isEmpty) {
+        return null;
+      }
+
       if (kDebugMode) {
-        print('===>> captureGoogleMapBytes error: $e');
+        print('===>> GoogleMap snapshot captured: ${bytesmap.length}');
+      }
+
+      return bytesmap;
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> [error] captureGoogleMapBytes error: $error');
       }
       return null;
     }
@@ -1215,14 +1240,14 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     }
 
     try {
-      final stopwatch0 = Stopwatch()..start(); // เริ่มจับเวลา
+      final stopwatch1 = Stopwatch()..start(); // เริ่มจับเวลา
 
-      final pw = lastconstraints.value!.maxWidth;
-      final ph = lastconstraints.value!.maxHeight;
+      final previewwidth = lastconstraints.value!.maxWidth;
+      final previewheight = lastconstraints.value!.maxHeight;
 
-      if (pw <= 0 || ph <= 0) {
+      if (previewwidth <= 0 || previewheight <= 0) {
         if (kDebugMode) {
-          print('===>> invalid preview size: $pw x $ph');
+          print('===>> invalid preview size: $previewwidth x $previewheight');
         }
         return;
       }
@@ -1236,24 +1261,30 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       final bool camerafront =
           cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
 
-      if (logobytescache == null) {
-        await preloadLogo(); // กันพลาด
+      final logo = imglogocache;
+      if (logo == null) {
+        if (kDebugMode) print('===>> logo cache null, skip overlay');
+        // จะ return หรือทำต่อแบบไม่วาดโลโก้ก็ได้
+        return;
       }
 
-      final Uint8List logobytes = logobytescache!;
-
       // ============================
-      // STEP 1 : compress + rotate (main isolate เท่านั้น)
+      // STEP 1 : หมุนรูปตามที่ถ่ายแนวตั้ง/แนวนอน (main isolate เท่านั้น)
       // ============================
       if (task.step <= 1) {
         bytes = await FlutterImageCompress.compressWithList(
           bytes,
           rotate: camerafront ? 0 : angle, //กล้องหน้าไม่ rotate ที่นี่
-          quality: 92,
+          quality: 85,
           keepExif: false,
         );
 
-        await file.writeAsBytes(bytes, flush: true);
+        stopwatch1.stop();
+        if (kDebugMode) {
+          print("===>> Process FlutterImageCompress: ${stopwatch1.elapsedMilliseconds} ms");
+        }
+
+        bytes = downscaleBeforeIsolate(bytes, maxSide: 2300);
 
         task.step = 1;
         await savePendingTasksQueue();
@@ -1269,66 +1300,158 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      final logolayout = getLogoLayoutForImage();
-      final maplayout = getMapLayout(task.rotationangle ?? 0);
-      final textlayout = getTextLayout(task.rotationangle ?? 0);
+      final stopwatch2 = Stopwatch()..start(); // เริ่มจับเวลา
+
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final imagepreviewwidth = frame.image.width;
+      final imagepreviewheight = frame.image.height;
+      if (rotationangle.value == 0 || rotationangle.value == 2) {
+        preparelogo ??= prepareLogoForImage(
+          logo: logo,
+          previewW: previewwidth,
+          imageW: imagepreviewwidth,
+          imageH: imagepreviewheight,
+        );
+
+        if (preparemap == null) {
+          if (task.mapbytes != null) {
+            final mapimage = img.decodeImage(task.mapbytes!);
+            if (mapimage != null) {
+              preparemap = prepareMapForImage(
+                map: mapimage,
+                previewW: previewwidth,
+                imageW: imagepreviewwidth,
+                imageH: imagepreviewheight,
+                mapUiWidth: mapuiwidth, // 105
+              );
+            }
+          }
+        }
+      } else {
+        preparelanscapelogo ??= prepareLogoForImage(
+          logo: logo,
+          previewW: previewwidth,
+          imageW: imagepreviewwidth,
+          imageH: imagepreviewheight,
+        );
+
+        if (preparelanscapemap == null) {
+          if (task.mapbytes != null) {
+            final mapimage = img.decodeImage(task.mapbytes!);
+            if (mapimage != null) {
+              preparelanscapemap = prepareMapForImage(
+                map: mapimage,
+                previewW: previewwidth,
+                imageW: imagepreviewwidth,
+                imageH: imagepreviewheight,
+                mapUiWidth: mapuiwidth, // 105
+              );
+            }
+          }
+        }
+      }
+
+      // if (preparetext == null) {
+      if (task.textoverlaybytes != null) {
+        final textimage = img.decodeImage(task.textoverlaybytes!);
+        if (textimage != null) {
+          preparetext = prepareTextForImage(
+            text: textimage,
+            previewW: previewwidth,
+            imageW: imagepreviewwidth,
+            imageH: imagepreviewheight,
+          );
+        }
+      }
+
+      stopwatch2.stop();
+      if (kDebugMode) {
+        print("===>> Process xy: ${stopwatch2.elapsedMilliseconds} ms");
+      }
+
+      final stopwatch3 = Stopwatch()..start(); // เริ่มจับเวลา
+
+      // if (emptybase == null) {
+      //   final img.Image? base = img.decodeImage(bytes);
+      //   if (base == null) return;
+
+      //   final img.Image empty = img.Image(width: base.width, height: base.height);
+
+      //   img.fill(empty, color: img.ColorRgba8(0, 0, 0, 0));
+
+      //   void draw(PreparedOverlay? overlay, img.Image? empty) {
+      //     if (overlay == null) {
+      //       return;
+      //     }
+
+      //     final x = overlay.x.clamp(0, empty!.width - overlay.image.width);
+      //     final y = overlay.y.clamp(0, empty.height - overlay.image.height);
+
+      //     img.compositeImage(empty, overlay.image, dstX: x, dstY: y, blend: img.BlendMode.alpha);
+      //   }
+
+      //   if (preparelogo != null) {
+      //     draw(preparelogo, empty);
+      //   }
+      //   if (preparemap != null) {
+      //     draw(preparemap, empty);
+      //   }
+
+      //   emptybase = PreparedOverlay(image: empty, x: 0, y: 0);
+      // }
 
       if (task.step <= 2) {
         bytes = await compute(
           processImageIsolate,
           ImageProcessPayload(
             bytes: bytes,
-            camerafront: camerafront,
-            previewwidth: pw,
-            previewheight: ph,
-            logobytes: logobytes,
-            mapbytes: task.mapbytes,
-            rotationangle: task.rotationangle ?? 0,
+            logo: rotationangle.value == 0 || rotationangle.value == 2
+                ? preparelogo
+                : preparelanscapelogo,
+            map: rotationangle.value == 0 || rotationangle.value == 2
+                ? preparemap
+                : preparelanscapemap,
+            text: preparetext,
+            emptybase: emptybase,
+            // camerafront: camerafront,
+            // previewwidth: pw,
+            // previewheight: ph,
+            // logobytes: logobytes,
+            // mapbytes: task.mapbytes,
+            // rotationangle: task.rotationangle ?? 0,
 
-            textOverlayBytes: task.textoverlaybytes!,
-
-            //logo
-            logouiwidth: logouiwidth,
-            logouitop: logolayout.xtop,
-            logouibottom: logolayout.xbottom,
-            logouileft: logolayout.yleft,
-            logouiright: logolayout.yright,
-            logouiangle: logolayout.angle,
-
-            //map
-            mapuiwidth: mapuiwidth,
-            mapuitop: maplayout.xtop,
-            mapuibottom: maplayout.xbottom,
-            mapuileft: maplayout.yleft,
-            mapuiright: maplayout.yright,
-            mapuiangle: maplayout.angle,
-
-            // text
-            textuitop: textlayout.xtop,
-            textuibottom: textlayout.xbottom,
-            textuileft: textlayout.yleft,
-            textuiright: textlayout.yright,
-            // textuiangle: textlayout.angle,
+            // textOverlayBytes: task.textoverlaybytes!,
           ),
         );
 
-        await file.writeAsBytes(bytes, flush: true);
+        await file.writeAsBytes(bytes);
 
+        stopwatch3.stop();
+        if (kDebugMode) {
+          print("===>> Process processImageIsolate: ${stopwatch3.elapsedMilliseconds} ms");
+        }
         task.step = 2;
         await savePendingTasksQueue();
-      }
-
-      stopwatch0.stop();
-      if (kDebugMode) {
-        print("===>> Process task image: ${stopwatch0.elapsedMilliseconds} ms");
       }
 
       // ============================
       // STEP 3 : Save Album
       // ============================
 
+      final stopwatch4 = Stopwatch()..start(); // เริ่มจับเวลา
+
       if (task.step <= 3) {
+        // lastfile.value = file;
         await saveImageToAlbum(file, task.filename);
+
+        // แจ้ง gallery ให้ insert ล่าสุด
+        await gallerycontroller.insertLatestImageSafe();
+
+        stopwatch4.stop();
+        if (kDebugMode) {
+          print("===>> Process saveImageToAlbum: ${stopwatch4.elapsedMilliseconds} ms");
+        }
 
         task.step = 3;
         await savePendingTasksQueue();
@@ -1406,9 +1529,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
             relativePath: "Pictures/$albumname",
           );
 
-          final gallery = Get.find<GalleryController>();
-          await gallery.insertByFileName(filename);
-
           if (kDebugMode) {
             print("===>> [scoped save Android 10] > ${file.path}");
           }
@@ -1421,9 +1541,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
           if (!hasaccessapk) await Gal.requestAccess(toAlbum: true);
           await Gal.putImage(file.path, album: albumname);
 
-          final gallery = Get.find<GalleryController>();
-          await gallery.insertByFileName(filename);
-
           if (kDebugMode) print("===>> [Gal save Android >=11] > ${file.path}");
           return;
         }
@@ -1433,9 +1550,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       bool hasaccessios = await Gal.hasAccess(toAlbum: true);
       if (!hasaccessios) await Gal.requestAccess(toAlbum: true);
       await Gal.putImage(file.path, album: albumname);
-
-      final gallery = Get.find<GalleryController>();
-      await gallery.insertByFileName(filename);
 
       if (kDebugMode) print("===>> [Gal save iOS] > ${file.path}");
     } on GalException catch (e) {
@@ -1510,12 +1624,20 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   // === เก็บค่า logo === //
   Future preloadLogo() async {
-    if (logobytescache != null) {
+    if (imglogocache != null) {
       return;
     }
 
     final data = await rootBundle.load(MainConstant.saklogo);
-    logobytescache = data.buffer.asUint8List();
+    final bytes = data.buffer.asUint8List();
+
+    final decode = img.decodeImage(bytes);
+    if (decode == null) {
+      if (kDebugMode) print('===>> [error] preloadLogo: decode logo failed');
+      return;
+    }
+
+    imglogocache = decode;
   }
   // === เก็บค่า logo === //
 
@@ -1651,5 +1773,167 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   MarginDrawImg getLogoLayoutForImage() {
     return MarginDrawImg(name: 'image', xtop: 5, xbottom: 0, yleft: 0, yright: 5, angle: 0);
+  }
+
+  //ลดขนาด
+  Uint8List downscaleBeforeIsolate(Uint8List bytes, {int maxSide = 2000}) {
+    final img.Image? decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+
+    if (decoded.width <= maxSide && decoded.height <= maxSide) {
+      return bytes; // ไม่ต้อง resize
+    }
+
+    final bool landscape = decoded.width >= decoded.height;
+
+    final img.Image resized = img.copyResize(
+      decoded,
+      width: landscape ? maxSide : null,
+      height: !landscape ? maxSide : null,
+    );
+
+    return Uint8List.fromList(
+      img.encodeJpg(resized, quality: 95), // quality สูงไว้ก่อน
+    );
+  }
+
+  // === ตำแหน่ง logo === //
+  PreparedOverlay prepareLogoForImage({
+    required img.Image logo,
+    required double previewW,
+    required int imageW,
+    required int imageH,
+  }) {
+    final imagescale = imageW / previewW;
+
+    final double reallogowidth = logouiwidth * imagescale;
+    final double reallogoheight = logo.height * (reallogowidth / logo.width);
+
+    int safe(int v) => v < 1 ? 1 : v;
+
+    final img.Image resized = img.copyResize(
+      logo,
+      width: safe(reallogowidth.round()),
+      height: safe(reallogoheight.round()),
+    );
+
+    final layout = getLogoLayoutForImage();
+
+    int x = 0;
+    int y = 0;
+
+    if (layout.yleft > 0) {
+      x = (layout.yleft * imagescale).round();
+    } else if (layout.yright > 0) {
+      x = (imageW - resized.width - (layout.yright * imagescale)).round();
+    }
+
+    if (layout.xtop > 0) {
+      y = (layout.xtop * imagescale).round();
+    } else if (layout.xbottom > 0) {
+      y = (imageH - resized.height - (layout.xbottom * imagescale)).round();
+    }
+
+    x = x.clamp(0, imageW - resized.width);
+    y = y.clamp(0, imageH - resized.height);
+
+    return PreparedOverlay(image: resized, x: x, y: y);
+  }
+  // === ตำแหน่ง logo === //
+
+  // === ตำแหน่ง map === //
+  PreparedOverlay prepareMapForImage({
+    required img.Image map,
+    required double previewW,
+    required int imageW,
+    required int imageH,
+    required double mapUiWidth, // เช่น 105
+  }) {
+    final imagescale = imageW / previewW;
+
+    final double realMapWidth = mapUiWidth * imagescale;
+    final double realMapHeight = map.height * (realMapWidth / map.width);
+
+    int safe(int v) => v < 1 ? 1 : v;
+
+    img.Image resized = img.copyResize(
+      map,
+      width: safe(realMapWidth.round()),
+      height: safe(realMapHeight.round()),
+    );
+
+    //ทำมุมขวาบน
+    final int radius = (10 * imagescale).round(); // UI 10px
+    resized = roundTopRightCorner(resized, radius: radius);
+
+    // ตำแหน่งเดิมของคุณ: ซ้ายล่าง
+    int x = 0;
+    int y = imageH - resized.height;
+
+    // กันหลุดขอบ
+    x = x.clamp(0, imageW - resized.width);
+    y = y.clamp(0, imageH - resized.height);
+
+    return PreparedOverlay(image: resized, x: x, y: y);
+  }
+  // === ตำแหน่ง map === //
+
+  //ฟังก์ชันวาดโค้งมุมแผนที่
+  img.Image roundTopRightCorner(img.Image src, {int radius = 16}) {
+    final w = src.width;
+    final h = src.height;
+
+    // clamp radius ไม่ให้เกินขนาดภาพ
+    final int safeRadius = radius.clamp(0, min(w, h)).toInt();
+    if (safeRadius == 0) return src;
+
+    for (int y = 0; y < safeRadius; y++) {
+      for (int x = w - safeRadius; x < w; x++) {
+        final dx = x - (w - safeRadius);
+        final dy = safeRadius - y;
+        if (dx * dx + dy * dy > safeRadius * safeRadius) {
+          src.setPixelRgba(x, y, 0, 0, 0, 0);
+        }
+      }
+    }
+    return src;
+  }
+  //ฟังก์ชันวาดโค้งมุมแผนที่
+
+  PreparedOverlay prepareTextForImage({
+    required img.Image text,
+    required double previewW,
+    required int imageW,
+    required int imageH,
+  }) {
+    // scale ตามภาพจริง (logic เดิมของคุณ)
+    const double textscalewidth = 0.9;
+
+    final bool landscape = imageW > imageH;
+    final double orientationscale = landscape ? 0.8 : 1.0;
+
+    final double textscale = (imageW / 1080) * orientationscale;
+
+    int safe(int v) => v < 1 ? 1 : v;
+
+    final img.Image resize = img.copyResize(
+      text,
+      width: safe((text.width * textscale * textscalewidth).round()),
+      height: safe((text.height * textscale * textscalewidth).round()),
+    );
+
+    // margin แบบเดิม
+    final int marginRight = (12 * textscale).round();
+    final int marginBottom = (12 * textscale).round();
+
+    // ตำแหน่งขวาล่าง
+    int x = imageW - resize.width - marginRight;
+    int y = imageH - resize.height - marginBottom;
+
+    // กันหลุดขอบ
+    x = x.clamp(0, imageW - resize.width);
+    y = y.clamp(0, imageH - resize.height);
+
+    return PreparedOverlay(image: resize, x: x, y: y);
   }
 }
