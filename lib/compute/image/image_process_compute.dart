@@ -1,18 +1,48 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:sakcamera_getx/compute/image/prepare_logo.dart';
 
 class ImageProcessPayload {
   final Uint8List bytes;
 
+  final int maxside;
+
   final PreparedOverlay? logo;
   final PreparedOverlay? map;
   final PreparedOverlay? text;
   final PreparedOverlay? emptybase;
 
-  ImageProcessPayload({required this.bytes, this.logo, this.map, this.text, this.emptybase});
+  ImageProcessPayload({
+    required this.bytes,
+    required this.maxside,
+    this.logo,
+    this.map,
+    this.text,
+    this.emptybase,
+  });
+}
+
+//ลดขนาด
+Uint8List downscaleBeforeIsolate(Uint8List bytes, int maxside) {
+  final img.Image? decoded = img.decodeImage(bytes);
+  if (decoded == null) return bytes;
+
+  if (decoded.width <= maxside && decoded.height <= maxside) {
+    return bytes; // ไม่ต้อง resize
+  }
+
+  final bool landscape = decoded.width >= decoded.height;
+
+  final img.Image resized = img.copyResize(
+    decoded,
+    width: landscape ? maxside : null,
+    height: !landscape ? maxside : null,
+  );
+
+  return Uint8List.fromList(
+    img.encodeJpg(resized, quality: 82), // quality สูงไว้ก่อน
+  );
 }
 
 Future<Uint8List> processImageIsolate(ImageProcessPayload payload) async {
@@ -23,8 +53,12 @@ Future<Uint8List> processImageIsolate(ImageProcessPayload payload) async {
   //     bytes = Uint8List.fromList(img.encodeJpg(img.flipHorizontal(decoded), quality: 92));
   //   }
   // }
+  Uint8List bytes = payload.bytes;
 
-  final img.Image? base = img.decodeImage(payload.bytes);
+  // 1. downscale
+  // bytes = downscaleBeforeIsolate(bytes, payload.maxside);
+
+  final img.Image? base = img.decodeImage(bytes);
   if (base == null) {
     return payload.bytes;
   }
@@ -59,6 +93,7 @@ Future<Uint8List> processImageIsolate(ImageProcessPayload payload) async {
 
     img.compositeImage(base, overlay.image, dstX: x, dstY: y, blend: img.BlendMode.alpha);
   }
+
   if (payload.logo != null) {
     draw(payload.logo);
   }

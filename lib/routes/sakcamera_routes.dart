@@ -6,4 +6,5 @@ abstract class Routes {
   static const camera = '/camera';
   static const gallery = '/gallery';
   static const setting = '/setting';
+
 }

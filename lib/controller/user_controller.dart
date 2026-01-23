@@ -15,6 +15,7 @@ import 'package:sakcamera_getx/model/status_code_model.dart';
 import 'package:sakcamera_getx/model/user/user_model.dart';
 import 'package:sakcamera_getx/service/user_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 
 class UserController extends GetxController {
   // ส่วน API
@@ -204,7 +205,7 @@ class UserController extends GetxController {
     usermodel.value = null;
     datetimenow = DateTime.now();
 
-    String string1 = DateFormat('yyyy-MM-dd').format(datetimenow);
+    // String string1 = DateFormat('yyyy-MM-dd').format(datetimenow);
     userdatabase = UserSQFLiteDatabase();
     if (userdatabase != null) {
       statusgetuserdatabase = await userdatabase!.createDatabase();
@@ -251,7 +252,7 @@ class UserController extends GetxController {
           null,
           null,
           idpersonnel,
-          string1,
+          null,
         );
         if (model1 == null) {
           return await getDataUser().catchError((error) {
@@ -262,7 +263,22 @@ class UserController extends GetxController {
             return UserService.model2error;
           });
         } else {
-          if (model1[0].username_2 == 'error') {
+          // if (model1[0].username_2 == 'error') {
+          //   await MainDialog.dialogPopup(
+          //     context,
+          //     true,
+          //     "เข้าสู่ระบบไม่สำเร็จ",
+          //     message: "กรุณาลองเข้าสู่ระบบใหม่อีกครั้ง",
+          //   );
+          //   statusgetuser = false;
+          //   return UserService.model2error;
+          // } else {
+          //   usermodel.value = model1[0];
+          //   return usermodel.value;
+          // }
+          final UserModel localuser = model1[0];
+
+          if (localuser.username_2 == 'error') {
             await MainDialog.dialogPopup(
               context,
               true,
@@ -271,10 +287,22 @@ class UserController extends GetxController {
             );
             statusgetuser = false;
             return UserService.model2error;
-          } else {
-            usermodel.value = model1[0];
-            return usermodel.value;
           }
+
+          // เพิ่ม: เช็กวันของข้อมูลใน SQLite
+          if (!checkdateuser(localuser.date)) {
+            if (kDebugMode) {
+              print('===>> user data outdated (local=${localuser.date}) → refresh from API');
+            }
+            return await getDataUser(); // ดึงข้อมูลล่าสุด + update SQLite
+          }
+          if (kDebugMode) {
+            print('===>> [status] getDataUser : date is today → use local');
+          }
+
+          // ข้อมูลยังเป็นของวันนี้ ใช้ต่อได้
+          usermodel.value = localuser;
+          return usermodel.value;
         }
       } else {
         return await getDataUser().catchError((error) {
@@ -403,13 +431,67 @@ class UserController extends GetxController {
   }
 
   Future loadUserFromLocal() async {
+    if (kDebugMode) {
+      print('===>> [status]: loadUserFromLocal()');
+    }
+
     if (idpersonnel == null) {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       idpersonnel = prefs.getString(SharedPreferencesDatabase.personnelid);
+      if (kDebugMode) {
+        print('===>> [status] idpersonnel from prefs : $idpersonnel');
+      }
     }
 
     if (idpersonnel != null) {
       usermodel.value = await getSQFLiteUser();
+    }
+    if (kDebugMode) {
+      print('===>> [status] loadUserFromLocal done, usermodel=${usermodel.value}');
+    }
+  }
+
+  //เช็ควันที่บันทึกข้อมูล
+  bool checkdateuser(String? storedate) {
+    // return false;
+    if (storedate == null) {
+      return false;
+    }
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return storedate == today;
+  }
+
+  Future logout() async {
+    if (kDebugMode) {
+      print('===>> [LOGOUT] : start');
+    }
+
+    // 1. SharedPreferences (ล้างหมด)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (kDebugMode) {
+      print('===>> [LOGOUT] : SharedPreferences clear');
+    }
+
+    // 2. SQLite (ลบทั้ง database file)
+    try {
+      final dbpath = await getDatabasesPath();
+      final fullPath = '$dbpath/SAKCAMERA.db';
+
+      await deleteDatabase(fullPath);
+
+      if (kDebugMode) {
+        print('===>> [LOGOUT] SQLite delete: $fullPath');
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> [LOGOUT] SQLite delete error: $error');
+      }
+    }
+
+    if (kDebugMode) {
+      print('===>> [LOGOUT] finish');
     }
   }
 }

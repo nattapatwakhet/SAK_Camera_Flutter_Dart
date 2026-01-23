@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
+import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/routes/sakcamera_routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,23 +22,34 @@ class SplashScreenController extends GetxController {
     int currentstep = 0;
 
     // STEP 1: โหลด shared pref
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    // final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await SharedPreferences.getInstance();
     currentstep++;
     final target1 = (currentstep / totalsteps) * 100.0;
     await animateProgress(target1);
 
     // STEP 2: เช็ค userresult
-    final String? userresult = prefs.getString(SharedPreferencesDatabase.personnelid);
+    // final String? userresult = prefs.getString(SharedPreferencesDatabase.personnelid);
+    // if (kDebugMode) {
+    //   print('===>> Splash userresult: $userresult');
+    // }
+    final UserController userresult = Get.find<UserController>();
     if (kDebugMode) {
-      print('===>> Splash userresult: $userresult');
+      print('===>> SPLASH SCREEN: call loadUserFromLocal()');
     }
+    await userresult.loadUserFromLocal();
+
+    if (kDebugMode) {
+      print('===>> SPLASH SCREEN: usermodel = ${userresult.usermodel.value}');
+    }
+
     currentstep++;
     final target2 = (currentstep / totalsteps) * 100.0;
     await animateProgress(target2);
 
     // รอให้ frame ปัจจุบันเสร็จก่อนค่อยเปลี่ยนหน้า
     if (!isClosed) {
-      if (userresult == null || userresult.isEmpty) {
+      if (userresult.usermodel.value == null) {
         Get.offAllNamed(Routes.login);
       } else {
         Get.offAllNamed(Routes.camera);

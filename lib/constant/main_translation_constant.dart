@@ -14,6 +14,7 @@ class TranslationService extends Translations {
       'password': 'รหัสผ่าน',
       'password_required': '*กรุณากรอกรหัสผ่าน',
       'forget_password': 'ลืมรหัสผ่าน',
+      'logout': 'ออกจากระบบ',
       'privacy_policy': 'เงื่อนไขและนโยบายความเป็นส่วนตัว',
       'dev_by': 'พัฒนาโดย : ฝ่ายพัฒนาระบบส่งเสริมปฏิบัติการ (version ${MainConstant.version})',
 
@@ -47,6 +48,8 @@ class TranslationService extends Translations {
       'android_store': 'เปิด Play Store',
       'ios_store': 'เปิด App Store',
       'huawei_store': 'เปิด AppGallery',
+
+      'setting': 'ตั้งค่า',
 
       //===>> Section Checkversion <===//
 
@@ -83,6 +86,11 @@ class TranslationService extends Translations {
           'กรุณาไปที่การตั้งค่าเพื่ออนุญาตการเข้าถึงพื้นที่จัดเก็บข้อมูล',
       //===>> Section ปฏิเสธขอสิทธิ์ไปตั้งค่า <===//
 
+      //===>> Section switch <===//
+      'switch_map': 'เปิดใช้งาน Google Map:',
+      'switch_watermark': 'ลายน้ำ',
+      //===>> Section switch <===//
+
       //===>> Section Warning <===//
       'warning': 'แจ้งเตือน',
       'warning_close_app': 'ต้องการปิดแอปหรือไม่',
@@ -93,6 +101,11 @@ class TranslationService extends Translations {
       'cancel': 'ยกเลิก',
       'go_setting': 'ไปที่ตั้งค่า',
       //===>> Section Button <===//
+
+      //===>> Section ปิด/เปิด <===//
+      'on': 'เปิด',
+      'off': 'ปิด',
+      //===>> Section ปิด/เปิด <===//
     },
     'en': {
       //===>> Section Login <===//
@@ -104,6 +117,7 @@ class TranslationService extends Translations {
       'password_required': '*Please enter your password',
       'forget_password': 'Forgot your password?',
       'privacy_policy': 'Terms and Privacy Policy',
+      'logout': 'Logout',
       'dev_by': 'Developed by: System Development Department.(version ${MainConstant.version})',
 
       'loging_in': 'Loging in',
@@ -137,6 +151,8 @@ class TranslationService extends Translations {
       'ios_store': 'Go to App Store',
       'huawei_store': 'Go to AppGallery',
 
+       'setting': 'Setting',
+
       //===>> Section Checkversion <===//
 
       //===>> Section ขอสิทธิ์ <===//
@@ -169,6 +185,11 @@ class TranslationService extends Translations {
       'setting_peramission_storage_message': 'Please go to settings to allow storage access.',
       //===>> Section ปฏิเสธขอสิทธิ์ไปตั้งค่า <===//
 
+      //===>> Section switch <===//
+      'switch_map': 'Open Google Map:',
+      'switch_watermark': 'Water Mark:',
+      //===>> Section switch <===//
+
       //===>> Section Warning <===//
       'warning': 'Warning',
       'warning_close_app': 'Want to close the app?',
@@ -180,6 +201,11 @@ class TranslationService extends Translations {
       'cancel': 'Cancel',
       'go_setting': 'Go to settings',
       //===>> Section Button <===//
+
+      //===>> Section ปิด/เปิด <===//
+      'on': 'On',
+      'off': 'Off',
+      //===>> Section ปิด/เปิด <===//
     },
   };
 }

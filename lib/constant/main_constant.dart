@@ -168,7 +168,7 @@ class MainConstant {
   static String buildingbottom = 'assets/images/person-warning.png';
   static String saklogo2 = 'assets/icons/sakcamera_icon_app.png';
    static String sakcamerasplash = 'assets/images/sakcamera-splash-full.png';
-
+static String bgsetting = 'assets/images/bgsaknew1.png';
   // fonts
   static String sukhumvit = 'Sukhumvit';
 

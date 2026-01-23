@@ -1,8 +1,14 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter_switch/flutter_switch.dart';
 import 'package:get/get.dart';
+import 'package:sakcamera_getx/component/main_form_component.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
+import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
 import 'package:sakcamera_getx/state/camera/setting_controller.dart';
+import 'package:sakcamera_getx/util/main_util.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Setting extends GetWidget<SettingController> {
   const Setting({super.key});
@@ -13,7 +19,7 @@ class Setting extends GetWidget<SettingController> {
       SystemUiOverlayStyle(
         statusBarColor: MainConstant.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MainConstant.primary,
+        systemNavigationBarColor: MainConstant.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
     );
@@ -44,11 +50,504 @@ class Setting extends GetWidget<SettingController> {
                     Expanded(flex: 1, child: Container(color: MainConstant.transparent)),
                   ],
                 ),
+
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      controller.lastconstraints.value = constraints;
+
+                      controller.layoutready =
+                          constraints.maxWidth > 0 && constraints.maxHeight > 0;
+
+                      if (kDebugMode) {
+                        print('=== LayoutBuilder Constraints ===');
+                        print('MaxWidth: ${constraints.maxWidth}');
+                        print('MaxHeight: ${constraints.maxHeight}');
+                      }
+
+                      return PopScope(
+                        canPop: true, // false จะแสดง pop up เราก่อน ถ้า true จะออกเลย
+                        // onPopInvokedWithResult: (didPop, result) async {
+                        //   final result = await MainDialog.dialogPopup(
+                        //     context,
+                        //     true,
+                        //     'warning'.tr,
+                        //     message: 'warning_close_app'.tr,
+                        //     confirmbutton: 'ok'.tr,
+                        //     closebutton: 'cancel'.tr,
+                        //   );
+                        //   if (result == true) {
+                        //     SystemNavigator.pop(); // ออกจากแอปหรือปิดแอป
+                        //   }
+                        // },
+                        child: Scaffold(
+                          appBar: widgetAppBar(context),
+                          backgroundColor: MainConstant.grey3,
+                          body: SizedBox(
+                            width: MainConstant.setWidthFull(context, constraints),
+                            height: MainConstant.setHeightFull(context, constraints),
+                            child: Stack(
+                              children: [
+                                // Positioned.fill(
+                                //   child: Image.asset(MainConstant.bgsetting, fit: BoxFit.fill),
+                                // ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.max,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      margin: EdgeInsets.only(
+                                        top: MainConstant.setHeight(context, constraints, 30),
+                                        bottom: MainConstant.setHeight(context, constraints, 10),
+                                        left: MainConstant.setWidth(context, constraints, 10),
+                                        right: MainConstant.setWidth(context, constraints, 10),
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(
+                                          MainConstant.setWidth(context, constraints, 36),
+                                        ),
+                                        color: MainConstant.white,
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: MainConstant.setWidth(context, constraints, 20),
+                                        vertical: MainConstant.setHeight(context, constraints, 20),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          // Container(
+                                          //   padding: EdgeInsets.symmetric(
+                                          //     // horizontal: 5,
+                                          //     vertical: MainConstant.setHeight(
+                                          //       context,
+                                          //       constraints,
+                                          //       5,
+                                          //     ),
+                                          //   ),
+                                          //   decoration: BoxDecoration(
+                                          //     color: MainConstant.white,
+                                          //     borderRadius: BorderRadius.circular(
+                                          //       MainConstant.setWidth(context, constraints, 36),
+                                          //     ),
+                                          //   ),
+                                          //   alignment: Alignment.center,
+
+                                          //   child: MainUtil.mainText(
+                                          //     context,
+                                          //     constraints,
+                                          //     text: 'แอปพลิเคชัน',
+
+                                          //     textstyle: MainUtil.mainTextStyle(
+                                          //       context,
+                                          //       constraints,
+                                          //       fontsize: MainConstant.h22,
+                                          //       fontweight: MainConstant.boldfontweight,
+                                          //       fontcolor: MainConstant.primary,
+                                          //     ),
+                                          //   ),
+                                          // ),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: MainConstant.setWidth(
+                                                context,
+                                                constraints,
+                                                10,
+                                              ),
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: MainConstant.white,
+                                              borderRadius: BorderRadius.circular(
+                                                MainConstant.setWidth(context, constraints, 36),
+                                              ),
+                                            ),
+
+                                            child: Column(
+                                              children: [
+                                                Obx(() {
+                                                  return Container(
+                                                    margin: EdgeInsets.only(
+                                                      top: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        10,
+                                                      ),
+                                                      left: MainConstant.setWidth(
+                                                        context,
+                                                        constraints,
+                                                        20,
+                                                      ),
+                                                      right: MainConstant.setWidth(
+                                                        context,
+                                                        constraints,
+                                                        20,
+                                                      ),
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: MainConstant.transparent,
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Container(
+                                                          margin: EdgeInsets.only(
+                                                            right: MainConstant.setWidth(
+                                                              context,
+                                                              constraints,
+                                                              10,
+                                                            ),
+                                                          ),
+                                                          child: MainUtil.mainText(
+                                                            context,
+                                                            constraints,
+                                                            text: 'switch_map'.tr,
+                                                            textstyle: MainUtil.mainTextStyle(
+                                                              context,
+                                                              constraints,
+                                                              fontsize: MainConstant.h16,
+                                                              fontweight:
+                                                                  MainConstant.normalfontweight,
+                                                              fontcolor: MainConstant.primary,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        FlutterSwitch(
+                                                          width: MainConstant.setWidth(
+                                                            context,
+                                                            constraints,
+                                                            70,
+                                                          ),
+                                                          height: MainConstant.setHeight(
+                                                            context,
+                                                            constraints,
+                                                            25,
+                                                          ),
+                                                          // toggleSize: 30.0,
+                                                          // borderRadius: 30.0,
+                                                          value: controller.switchmap.value,
+                                                          showOnOff: true,
+                                                          activeText: 'on'.tr,
+                                                          inactiveText: 'off'.tr,
+                                                          valueFontSize: MainConstant.h14,
+                                                          activeColor: MainConstant.primary,
+                                                          activeToggleColor: MainConstant.white,
+                                                          inactiveColor: MainConstant.grey,
+                                                          activeTextColor: MainConstant.white,
+                                                          inactiveTextColor: MainConstant.white,
+                                                          onToggle: (value) async {
+                                                            controller.switchmap.value = value;
+
+                                                            if (kDebugMode) {
+                                                              print(
+                                                                "===>> Switch is: ${value ? "ON" : "OFF"}",
+                                                              );
+                                                            }
+
+                                                            final sharepreferences =
+                                                                await SharedPreferences.getInstance();
+                                                            await sharepreferences.setBool(
+                                                              SharedPreferencesDatabase.switchmap,
+                                                              value,
+                                                            ); // true = Google Map, false = Flutter Map
+                                                            if (kDebugMode) {
+                                                              print(
+                                                                "===>> Switch is: ${value ? "ON (Google Map)" : "OFF (Flutter Map)"}",
+                                                              );
+                                                            }
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                }),
+                                                Obx(() {
+                                                  return Container(
+                                                    margin: EdgeInsets.only(
+                                                      top: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        10,
+                                                      ),
+                                                      left: MainConstant.setWidth(
+                                                        context,
+                                                        constraints,
+                                                        20,
+                                                      ),
+                                                      right: MainConstant.setWidth(
+                                                        context,
+                                                        constraints,
+                                                        20,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Container(
+                                                          decoration: BoxDecoration(
+                                                            color: MainConstant.transparent,
+                                                          ),
+                                                          child: MainUtil.mainText(
+                                                            context,
+                                                            constraints,
+                                                            text: 'switch_watermark'.tr,
+                                                            textstyle: MainUtil.mainTextStyle(
+                                                              context,
+                                                              constraints,
+                                                              fontsize: MainConstant.h16,
+                                                              fontweight:
+                                                                  MainConstant.normalfontweight,
+                                                              fontcolor: MainConstant.primary,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          decoration: BoxDecoration(
+                                                            color: MainConstant.transparent,
+                                                          ),
+                                                          margin: EdgeInsets.only(
+                                                            left: MainConstant.setWidth(
+                                                              context,
+                                                              constraints,
+                                                              10,
+                                                            ),
+                                                          ),
+                                                          child: FlutterSwitch(
+                                                            width: MainConstant.setWidth(
+                                                              context,
+                                                              constraints,
+                                                              70,
+                                                            ),
+                                                            height: MainConstant.setHeight(
+                                                              context,
+                                                              constraints,
+                                                              25,
+                                                            ),
+                                                            // toggleSize: 30.0,
+                                                            // borderRadius: 30.0,
+                                                            value: controller.switchlicense.value,
+                                                            showOnOff: true,
+                                                            activeText: 'on'.tr,
+                                                            inactiveText: 'off'.tr,
+                                                            valueFontSize: MainConstant.h14,
+                                                            activeColor: MainConstant.primary,
+                                                            activeToggleColor: MainConstant.white,
+                                                            inactiveColor: MainConstant.grey,
+                                                            activeTextColor: MainConstant.white,
+                                                            inactiveTextColor: MainConstant.white,
+                                                            onToggle: (value) async {
+                                                              controller.switchlicense.value =
+                                                                  value;
+                                                              if (kDebugMode) {
+                                                                print(
+                                                                  "===>> Switch is: ${value ? "ON" : "OFF"}",
+                                                                );
+                                                              }
+
+                                                              final prefs =
+                                                                  await SharedPreferences.getInstance();
+                                                              // await prefs.setBool(
+                                                              //   SharedPreferencesDatabase.switchlicense,
+                                                              //   value,
+                                                              // ); // true = แปะลายน้ำ
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                }),
+
+                                                Container(
+                                                  margin: EdgeInsets.only(
+                                                    top: MainConstant.setWidth(
+                                                      context,
+                                                      constraints,
+                                                      35,
+                                                    ),
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: MainConstant.transparent,
+                                                  ),
+                                                  child: MainComponet.mainButton(
+                                                    context,
+                                                    constraints,
+                                                    margin: EdgeInsets.only(
+                                                      top: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        0,
+                                                      ),
+                                                      bottom: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        0,
+                                                      ),
+                                                    ),
+                                                    width: MainConstant.setWidth(
+                                                      context,
+                                                      constraints,
+                                                      350,
+                                                    ),
+                                                    height: MainConstant.setHeight(
+                                                      context,
+                                                      constraints,
+                                                      40,
+                                                    ),
+                                                    onPressed: () async {
+                                                      //ไปหน้า check version
+                                                      Get.toNamed('version');
+                                                    },
+                                                    backgroundcolor: MainConstant.primary,
+                                                    foregroundcolor: MainConstant.white,
+
+                                                    // ===> ส่วน text ในปุ่ม <=== //
+                                                    child: MainUtil.mainText(
+                                                      context,
+                                                      constraints,
+                                                      text: 'name_version'.tr,
+                                                      textstyle: MainUtil.mainTextStyle(
+                                                        context,
+                                                        constraints,
+                                                        fontsize: MainConstant.h18,
+                                                        fontweight: MainConstant.boldfontweight,
+                                                        fontcolor: MainConstant.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  margin: EdgeInsets.only(
+                                                    top: MainConstant.setWidth(
+                                                      context,
+                                                      constraints,
+                                                      10,
+                                                    ),
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: MainConstant.transparent,
+                                                  ),
+                                                  child: MainComponet.mainButton(
+                                                    context,
+                                                    constraints,
+                                                    margin: EdgeInsets.only(
+                                                      top: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        0,
+                                                      ),
+                                                      bottom: MainConstant.setHeight(
+                                                        context,
+                                                        constraints,
+                                                        0,
+                                                      ),
+                                                    ),
+                                                    width: MainConstant.setWidth(
+                                                      context,
+                                                      constraints,
+                                                      350,
+                                                    ),
+                                                    height: MainConstant.setHeight(
+                                                      context,
+                                                      constraints,
+                                                      40,
+                                                    ),
+                                                    onPressed: () async {
+                                                      // ออกจากระบบไปหน้า login
+                                                      controller.submitLogout(context);
+                                                    },
+                                                    backgroundcolor: MainConstant.primary,
+                                                    foregroundcolor: MainConstant.white,
+
+                                                    // ===> ส่วน text ในปุ่ม <=== //
+                                                    child: MainUtil.mainText(
+                                                      context,
+                                                      constraints,
+                                                      text: 'logout'.tr,
+                                                      textstyle: MainUtil.mainTextStyle(
+                                                        context,
+                                                        constraints,
+                                                        fontsize: MainConstant.h18,
+                                                        fontweight: MainConstant.boldfontweight,
+                                                        fontcolor: MainConstant.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                Container(
+                                  width: MainConstant.setWidthFull(context, constraints),
+                                  height: MainConstant.setHeight(context, constraints, 20),
+                                  decoration: BoxDecoration(
+                                    color: MainConstant.primary,
+                                    borderRadius: BorderRadius.only(
+                                      bottomLeft: Radius.circular(
+                                        MainConstant.setWidth(context, constraints, 36),
+                                      ),
+                                      bottomRight: Radius.circular(
+                                        MainConstant.setWidth(context, constraints, 36),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  //===>> AppBar <===//
+  PreferredSizeWidget widgetAppBar(BuildContext context) {
+    return PreferredSize(
+      preferredSize: Size.fromHeight(60),
+      child: AppBar(
+        backgroundColor: MainConstant.primary,
+        automaticallyImplyLeading: false,
+        flexibleSpace: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: 0,
+                left: 15,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: MainConstant.white),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                ),
+              ),
+              Positioned(
+                bottom: 6,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Text(
+                    'setting'.tr,
+                    style: TextStyle(
+                      fontSize: MainConstant.h18,
+                      fontWeight: MainConstant.boldfontweight,
+                      color: MainConstant.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

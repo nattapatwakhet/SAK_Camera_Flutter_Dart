@@ -18,7 +18,7 @@ class Version extends GetView<CheckVersionController> {
       SystemUiOverlayStyle(
         statusBarColor: MainConstant.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: MainConstant.primary,
+        systemNavigationBarColor: MainConstant.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
     );
@@ -58,10 +58,11 @@ class Version extends GetView<CheckVersionController> {
                         print('MaxHeight: ${constraints.maxHeight}');
                       }
                       return PopScope(
-                        canPop: false, // false จะแสดง pop up เราก่อน ถ้า true จะออกเลย
-                        onPopInvokedWithResult: (didPop, popResult) async {
-                          Get.back();
-                        },
+                        canPop: true, // false จะแสดง pop up เราก่อน ถ้า true จะออกเลย
+
+                        // onPopInvokedWithResult: (didPop, popResult) async {
+                        //   Get.back();
+                        // },
                         child: Scaffold(
                           appBar: widgetAppBar(context),
                           backgroundColor: MainConstant.white,
@@ -106,7 +107,7 @@ class Version extends GetView<CheckVersionController> {
                                                               36,
                                                             ),
                                                           ),
-                                                          color: MainConstant.primary,
+                                                          color: MainConstant.white,
                                                         ),
                                                         width: MainConstant.setWidthFull(
                                                           context,
@@ -203,7 +204,9 @@ class Version extends GetView<CheckVersionController> {
                 left: 15,
                 child: IconButton(
                   icon: Icon(Icons.arrow_back_ios, color: MainConstant.white),
-                  onPressed: () => Get.back(),
+                  onPressed: () {
+                    Get.back();
+                  },
                   padding: EdgeInsets.zero,
                   constraints: BoxConstraints(),
                 ),

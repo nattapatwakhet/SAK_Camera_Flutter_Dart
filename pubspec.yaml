@@ -50,6 +50,7 @@ dependencies:
   exif: ^3.3.0
   flutter_image_compress: ^2.1.0 #not support Linux, Windows //===>> (จัดการ format รูปภาพ)
   image_gallery_saver_plus: ^4.0.1
+  flutter_switch: ^0.3.2 # all support. //===>> (custom switch)
 
 
   # Database

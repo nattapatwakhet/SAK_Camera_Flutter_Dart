@@ -688,26 +688,6 @@ class Camera extends GetWidget<CameraPageController> {
 
         child: Opacity(opacity: 0.85, child: Image.asset(MainConstant.saklogo, width: logosize)),
       );
-
-      // final layout = controller.getLogoLayout(controller.rotationangle.value);
-
-      // return TweenAnimationBuilder(
-      //   duration: const Duration(milliseconds: 300),
-      //   curve: Curves.easeInOut,
-      //   tween: Tween<double>(begin: layout.angle, end: layout.angle),
-      //   builder: (context, animAngle, child) {
-      //     return AnimatedPositioned(
-      //       duration: const Duration(milliseconds: 300),
-      //       curve: Curves.easeInOut,
-      //       top: layout.xtop == 0 ? null : layout.xtop,
-      //       bottom: layout.xbottom == 0 ? null : layout.xbottom,
-      //       left: layout.yleft == 0 ? null : layout.yleft,
-      //       right: layout.yright == 0 ? null : layout.yright,
-      //       child: Transform.rotate(angle: animAngle, child: child),
-      //     );
-      //   },
-      //   child: Opacity(opacity: 0.85, child: Image.asset(MainConstant.saklogo, width: logosize)),
-      // );
     });
   }
   //===>> Logo <===//
