@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:intl/intl.dart';
@@ -107,7 +108,6 @@ class Camera extends GetWidget<CameraPageController> {
                                 Expanded(
                                   flex: 1,
                                   child: Stack(
-                                    // mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       buildWidgetCameraSwitchButtons(context, constraints),
                                       buildWidgetSetButtons(context, constraints),
@@ -273,11 +273,11 @@ class Camera extends GetWidget<CameraPageController> {
             child: Container(
               color: MainConstant.transparent,
               width: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
-                  ? MainConstant.setWidth(context, constraints, 220)
-                  : MainConstant.setWidth(context, constraints, 220),
+                  ? 220
+                  : 220,
               height: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
-                  ? MainConstant.setHeight(context, constraints, 120)
-                  : MainConstant.setHeight(context, constraints, 220),
+                  ? 120
+                  : 220,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -700,18 +700,17 @@ class Camera extends GetWidget<CameraPageController> {
 
   //===>> Map <===//
   Widget buildMiniMap(BuildContext context, BoxConstraints constraints) {
-    final setting = Get.find<SettingController>();
-    final map = Get.find<MapController>();
+    final settingcontroller = Get.find<SettingController>();
+    final mapcontroller = Get.find<MapController>();
 
     return Obx(() {
       // ==== Huawei บังคับ FlutterMap (เหมือนของเก่า) ====
-      // if (Platform.isAndroid &&
-      //     map.checkdevice?.toLowerCase() == 'huawei') {
-      //   return buildMiniMapFlutter(context, constraints);
-      // }
+      if (Platform.isAndroid && mapcontroller.huaweibrand.value) {
+        return buildMiniMapFlutter(context, constraints);
+      }
 
       // ==== สลับตาม switchmap ====
-      if (setting.switchmap.value) {
+      if (settingcontroller.switchmap.value) {
         // Google Map
         return buildMiniMapGoogle(context, constraints);
       } else {
@@ -784,8 +783,8 @@ class Camera extends GetWidget<CameraPageController> {
             child: (currentlatlng == null || refreshmap)
                 ? loadingMap(context, constraints)
                 : SizedBox(
-                    width: MainConstant.setWidth(context, constraints, 105),
-                    height: MainConstant.setWidth(context, constraints, 105),
+                    width: 105,
+                    height: 105,
                     child: gm.GoogleMap(
                       key: controller.mapcontroller.googlemapkey.value,
                       mapType: gm.MapType.satellite,
@@ -815,8 +814,8 @@ class Camera extends GetWidget<CameraPageController> {
 
   Widget loadingMap(BuildContext context, BoxConstraints constraints) {
     return Container(
-      width: MainConstant.setWidth(context, constraints, 105),
-      height: MainConstant.setWidth(context, constraints, 105),
+      width: 105,
+      height: 105,
       color: MainConstant.grey,
       child: Center(
         child: SizedBox(
@@ -890,8 +889,8 @@ class Camera extends GetWidget<CameraPageController> {
             child: (currentlatlng == null || refreshmap)
                 ? loadingMap(context, constraints)
                 : SizedBox(
-                    width: MainConstant.setWidth(context, constraints, 105),
-                    height: MainConstant.setWidth(context, constraints, 105),
+                    width: 105,
+                    height: 105,
                     child: fm.FlutterMap(
                       key: controller.mapcontroller.fluttermapkey.value,
                       mapController: c.fluttermapcontroller,
@@ -1176,6 +1175,17 @@ class Camera extends GetWidget<CameraPageController> {
               children: [
                 ElevatedButton(
                   onPressed: () async {
+                    final pos = await Geolocator.getCurrentPosition(
+                      desiredAccuracy: LocationAccuracy.high,
+                    );
+
+                    mapcontroller.setGoogleLatLng(gm.LatLng(pos.latitude, pos.longitude));
+
+                    if (kDebugMode) {
+                      print('===>> get GPS');
+                      print('===>> Update currentlatlnggoogle');
+                    }
+
                     await mapcontroller.refreshGoogleMap(debug: kDebugMode);
                   },
                   style: ElevatedButton.styleFrom(

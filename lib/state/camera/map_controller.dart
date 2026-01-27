@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:latlong2/latlong.dart' as latlng;
+import 'package:sakcamera_getx/compute/checkdevice_compute.dart';
 
 class MapController extends GetxController {
   final refreshmap = false.obs;
@@ -28,11 +29,17 @@ class MapController extends GetxController {
   final markersfluttermap = <fm.Marker>[].obs;
   final fluttermapkey = const ValueKey('mini_flutter_map').obs;
 
+  int googlesession = 0; // token เพิ่มทุกครั้งที่รีเซ็ต
+  final googlealive = false.obs; // map widget ยังอยู่ไหม
+
+  final huaweibrand = false.obs; //เช็ค device huawei
+
   @override
   void onInit() {
     super.onInit();
     loadMarker();
     initFlutterMap();
+    checkDevice();
   }
 
   @override
@@ -46,6 +53,16 @@ class MapController extends GetxController {
   //   googlemapkey.value =UniqueKey();
   //   googlemapcontroller.value= null;
   // }
+
+  Future checkDevice() async {
+    final brand = await CheckDevice.checkDeviceBrand();
+    if (brand == 'huawei') {
+      huaweibrand.value = true;
+      if (kDebugMode) {
+        print('===>> Huawei detected → force FlutterMap');
+      }
+    }
+  }
 
   Future setGoogleLatLng(gm.LatLng glatlng, {double zoom = 17.5}) async {
     // โหลด marker ถ้ายังไม่พร้อม //
@@ -70,19 +87,26 @@ class MapController extends GetxController {
           child: Image.asset('assets/images/sakmarker_small.png'),
         ),
       );
-    //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว)//
-    final g = googlemapcontroller.value;
-    if (g != null) {
-      g.animateCamera(gm.CameraUpdate.newLatLngZoom(glatlng, zoom));
-    } //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว)//
+    //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว) real-time//
+    final googlemapmove = googlemapcontroller.value;
+    if (googlemapmove != null && googlealive.value) {
+      googlemapmove.animateCamera(gm.CameraUpdate.newLatLngZoom(glatlng, zoom));
+    } //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว) real-time//
   }
 
   void onGoogleMapCreated(gm.GoogleMapController controller) async {
+    final session = ++googlesession; // session ใหม่
+    googlealive.value = true;
     googlemapcontroller.value = controller;
 
     final latlng = currentlatlnggoogle.value;
     if (latlng != null) {
       await Future.delayed(const Duration(milliseconds: 300));
+
+      if (!googlealive.value || session != googlesession) {
+        return;
+      }
+
       controller.animateCamera(gm.CameraUpdate.newLatLngZoom(latlng, 17.5));
     }
   }
@@ -130,15 +154,14 @@ class MapController extends GetxController {
       final latlng = currentlatlnggoogle.value;
       final controller = googlemapcontroller.value;
 
-      if (latlng == null || controller == null) {
-        // if (debug) {
+      if (latlng == null || controller == null || !googlealive.value) {
         if (kDebugMode) {
           print(
             '===>> refreshGoogleMap cancelled '
             '(latlng: ${latlng != null}, controller: ${controller != null})',
           );
         }
-        // }
+
         return false;
       }
 
@@ -175,8 +198,18 @@ class MapController extends GetxController {
     }
   }
 
+  void disposeGoogleMap() {
+    googlesession++; // invalidate งาน async เก่าทั้งหมด
+    googlealive.value = false;
+    googlemapcontroller.value = null;
+    googlemarker.clear();
+  }
+
   void setFlutterLatLng(latlng.LatLng latlng, {double zoom = 17.5}) {
     currentlatlngflutter.value = latlng;
+
+    //หมุดเลื่อนตามตำแหน่งจริง real-time
+    fluttermapcontroller.move(latlng, fluttermapcontroller.camera.zoom);
 
     // อัปเดต marker
     markersfluttermap

@@ -8,7 +8,7 @@ class CheckDevice {
     try {
       if (Platform.isAndroid) {
         final info = await DeviceInfoPlugin().androidInfo;
-        return info.brand.toLowerCase();
+        return info.brand.toLowerCase(); // huawei, samsung, etc.
       } else if (Platform.isIOS) {
         return 'apple';
       } else {
@@ -18,6 +18,7 @@ class CheckDevice {
       if (kDebugMode) {
         print('error ===>> CheckDevice.checkDeviceBrand: $error');
       }
+      return 'unknown';
     }
   }
 }

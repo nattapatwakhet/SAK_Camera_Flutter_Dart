@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
+import 'package:sakcamera_getx/compute/checkdevice_compute.dart';
 import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,11 +18,27 @@ class SettingController extends GetxController {
 
   RxBool switchmap = false.obs; // สลับแผนที่
   RxBool switchlicense = false.obs; // แนบลายน้ำ
+
+  RxBool switchingmap = false.obs; // กันกดสวิตแมพรัว
+
+  final huaweibrand = false.obs; //เช็ค device huawei
+
   @override
   void onInit() {
     super.onInit();
     usercontroller = Get.find<UserController>();
     loadSetting();
+    checkDevice();
+  }
+
+  Future checkDevice() async {
+    final brand = await CheckDevice.checkDeviceBrand();
+    if (brand == 'huawei') {
+      huaweibrand.value = true;
+      if (kDebugMode) {
+        print('===>> Huawei detected → force FlutterMap');
+      }
+    }
   }
 
   void loadSetting() async {

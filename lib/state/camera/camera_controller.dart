@@ -189,6 +189,10 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   PreparedOverlay? emptybase;
 
+  int lastorientationgroup = -1;
+  // 0 = portrait (rotation 0,2)
+  // 1 = landscape (rotation 1,3)
+
   // ===== Function State ===== //
   @override
   void onInit() {
@@ -1103,45 +1107,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         print('===>> [status] บันทึกภาพดิบไปที่: ${rawfileimage.path}');
       }
 
-      // ===== FIX ORIENTATION (Front camera landscape) =====
-      // try {
-      //   final bytes = await rawfileimage.readAsBytes();
-      //   final img.Image? decoded = img.decodeImage(bytes);
-
-      //   if (decoded != null) {
-      //     img.Image fixed = decoded;
-
-      //     final isFront = cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
-
-      //     if (isFront) {
-      //       switch (rotationangle.value) {
-      //         case 1: // landscape left
-      //           fixed = img.copyRotate(decoded, angle: -90);
-      //           break;
-      //         case 3: // landscape right
-      //           fixed = img.copyRotate(decoded, angle: 90);
-      //           break;
-      //         case 2: // upside down
-      //           fixed = img.copyRotate(decoded, angle: 180);
-      //           break;
-      //         default:
-      //           break;
-      //       }
-      //     }
-
-      //     final fixedBytes = img.encodeJpg(fixed, quality: 95);
-      //     await rawfileimage.writeAsBytes(fixedBytes, flush: true);
-
-      //     if (kDebugMode) {
-      //       print('===>> [fix] orientation applied (${rotationangle.value})');
-      //     }
-      //   }
-      // } catch (e) {
-      //   if (kDebugMode) {
-      //     print('===>> [error] fix orientation: $e');
-      //   }
-      // }
-
       // --- capture map snapshot ---
 
       // mapsnapshot ??= await captureGoogleMapBytes();
@@ -1158,20 +1123,6 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         fluttermapsnapshot ??= await captureFlutterMapBytes();
         mapbytes = fluttermapsnapshot;
       }
-
-      // final Uint8List? mapbytes = await captureGoogleMapBytes();
-
-      // normalize map → PNG (กัน isolate พัง)
-      // Uint8List? safemapbytes;
-
-      // if (mapsnapshotcache != null) {
-      //   if (mapsnapshotcache!.isNotEmpty) {
-      //     final img.Image? decoded = img.decodeImage(mapsnapshotcache!);
-      //     if (decoded != null) {
-      //       safemapbytes = Uint8List.fromList(img.encodePng(decoded));
-      //     }
-      //   }
-      // }
 
       final textoverlaybytes = await captureText(infotextkey);
 
@@ -1257,6 +1208,20 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     }
   }
   // === ถ่ายภาพ Flutter Map === //
+
+  // === เคลียร์ cache map === //
+  void clearMapCache() {
+    googlemapsnapshot = null;
+    fluttermapsnapshot = null;
+
+    preparemap = null;
+    preparelanscapemap = null;
+
+    if (kDebugMode) {
+      print('===>> clearMapCache');
+    }
+  }
+  // === เคลียร์ cache map === //
 
   // === ถ่ายภาพ text === //
   Future<Uint8List> captureText(GlobalKey key) async {
@@ -1398,7 +1363,12 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       final imagepreviewwidth = frame.image.width;
       final imagepreviewheight = frame.image.height;
 
-      if (rotationangle.value == 0 || rotationangle.value == 2) {
+      checkAndResetCacheByRotation(task.rotationangle ?? 0);
+
+      final taskrotation = task.rotationangle ?? 0;
+      final statusrotation = (taskrotation == 0 || taskrotation == 2);
+
+      if (statusrotation) {
         preparelogo ??= prepareLogoForImage(
           logo: logo,
           previewW: previewwidth,
@@ -1578,6 +1548,25 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         default:
           return 0; // ปกติ
       }
+    }
+  }
+
+  void checkAndResetCacheByRotation(int angle) {
+    final newgroup = (angle == 1 || angle == 3) ? 1 : 0;
+
+    if (newgroup != lastorientationgroup) {
+      preparelogo = null;
+      preparemap = null;
+      preparelanscapelogo = null;
+      preparelanscapemap = null;
+      preparetext = null;
+      emptybase = null;
+
+      if (kDebugMode) {
+        print('===>> Orientation changed → clear overlay cache');
+      }
+
+      lastorientationgroup = newgroup;
     }
   }
 
