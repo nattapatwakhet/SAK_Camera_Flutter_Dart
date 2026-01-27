@@ -46,7 +46,7 @@ class GalleryController extends GetxController {
     }
 
     final ps = await PhotoManager.requestPermissionExtend();
-    if (!ps.isAuth) {
+    if (!(ps.isAuth || ps == PermissionState.limited)) {
       assets.clear();
       loading.value = false;
       return;
@@ -77,12 +77,18 @@ class GalleryController extends GetxController {
       }
     }
     if (Platform.isAndroid) {
-      targetalbum = albums.firstWhereOrNull((a) => a.name.toLowerCase() == albumname.toLowerCase());
+      // targetalbum = albums.firstWhereOrNull((a) => a.name.toLowerCase() == albumname.toLowerCase());
 
       // ไม่ fallback
+      // if (targetalbum == null) {
+      //   assets.clear();
+      //   lastasset.value = null;
+      //   loading.value = false;
+      //   return;
+      // }
+      targetalbum = albums.firstWhereOrNull((a) => a.name == albumname);
       if (targetalbum == null) {
         assets.clear();
-        lastasset.value = null;
         loading.value = false;
         return;
       }
@@ -126,7 +132,7 @@ class GalleryController extends GetxController {
   // =====================================================
   Future insertLatestImageSafe() async {
     final ps = await PhotoManager.requestPermissionExtend();
-    if (!ps.isAuth) return;
+    if (!(ps.isAuth || ps == PermissionState.limited)) return;
 
     // รอ MediaStore index
     await Future.delayed(const Duration(milliseconds: 800));

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
-import 'package:sakcamera_getx/compute/image/prepare_logo.dart';
+import 'package:sakcamera_getx/compute/processimage/prepare_logo.dart';
 
 class ImageProcessPayload {
   final Uint8List bytes;

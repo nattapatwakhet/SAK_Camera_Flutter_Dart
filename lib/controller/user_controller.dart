@@ -467,18 +467,38 @@ class UserController extends GetxController {
     }
 
     // 1. SharedPreferences (ล้างหมด)
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    final sharedpreferences = await SharedPreferences.getInstance();
 
+    final String? switchmap = sharedpreferences.getString(SharedPreferencesDatabase.switchmap);
+
+    final String? switchwatermark = sharedpreferences.getString(SharedPreferencesDatabase.switchwatermark);
+
+if (kDebugMode) {
+  
+}
+    await sharedpreferences.clear();
     if (kDebugMode) {
       print('===>> [LOGOUT] : SharedPreferences clear');
+    }
+
+    if (switchmap != null) {
+      sharedpreferences.setString(SharedPreferencesDatabase.switchmap, switchmap);
+    }
+    if (kDebugMode) {
+      print('===>> [LOGOUT] : set switchmap');
+    }
+    if (switchwatermark != null) {
+      sharedpreferences.setString(SharedPreferencesDatabase.switchwatermark, switchwatermark);
+    }
+
+    if (kDebugMode) {
+      print('===>> [LOGOUT] : set watermark');
     }
 
     // 2. SQLite (ลบทั้ง database file)
     try {
       final dbpath = await getDatabasesPath();
       final fullPath = '$dbpath/SAKCAMERA.db';
-
       await deleteDatabase(fullPath);
 
       if (kDebugMode) {

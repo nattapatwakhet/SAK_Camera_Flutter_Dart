@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:sakcamera_getx/component/main_form_component.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
+import 'package:sakcamera_getx/state/camera/map_controller.dart';
 import 'package:sakcamera_getx/state/camera/setting_controller.dart';
 import 'package:sakcamera_getx/util/main_util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -251,6 +252,19 @@ class Setting extends GetWidget<SettingController> {
                                                                 "===>> Switch is: ${value ? "ON (Google Map)" : "OFF (Flutter Map)"}",
                                                               );
                                                             }
+
+                                                            final map = Get.find<MapController>();
+
+                                                            if (!value) {
+                                                              // สลับมา FlutterMap
+                                                              map.initFlutterMap();
+                                                              map.syncLatLngForFlutter(); // sync ตำแหน่ง
+                                                            }
+                                                            map.refreshmap.value = true;
+                                                            await Future.delayed(
+                                                              const Duration(milliseconds: 50),
+                                                            );
+                                                            map.refreshmap.value = false;
                                                           },
                                                         ),
                                                       ],

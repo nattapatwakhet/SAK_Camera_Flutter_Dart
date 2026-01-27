@@ -26,6 +26,7 @@ dependencies:
   google_maps_flutter: ^2.14.0 # not support Linux, Windows, Macos //===>> จัดการแผนที่
   geolocator: ^14.0.2
   flutter_map: ^8.2.2
+  latlong2: ^0.9.1 # all support. //===>> (ใช้กับ Flutter Map)
 
   # Gallery
   carousel_slider: ^5.1.1 # support all  //===>> รูปแบบสไลด์รูปหน้า fullscreen

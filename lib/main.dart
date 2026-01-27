@@ -12,6 +12,7 @@ import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/routes/sackcamera_pages.dart';
 import 'package:sakcamera_getx/routes/sakcamera_routes.dart';
 import 'package:sakcamera_getx/state/app/checkversion_controller.dart';
+import 'package:sakcamera_getx/state/camera/setting_controller.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized(); // เตรียมระบบ Flutter ก่อน
@@ -38,6 +39,7 @@ Future main() async {
   Get.put(UserController());
   Get.put(InternetChecker());
   Get.put(CheckVersionController());
+  Get.put(SettingController());
 
   runApp(MyApp());
   // runApp(

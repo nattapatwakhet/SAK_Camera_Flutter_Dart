@@ -1,9 +1,12 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
+import 'package:latlong2/latlong.dart' as latlng;
 
 class MapController extends GetxController {
   final refreshmap = false.obs;
@@ -16,12 +19,20 @@ class MapController extends GetxController {
   late gm.BitmapDescriptor custommarker;
   bool markerready = false;
 
-final googlemapkey = const ValueKey('mini_map').obs;
+  final googlemapkey = const ValueKey('mini_map').obs;
+
+  //Flutter map
+
+  late fm.MapController fluttermapcontroller;
+  final Rxn<latlng.LatLng> currentlatlngflutter = Rxn();
+  final markersfluttermap = <fm.Marker>[].obs;
+  final fluttermapkey = const ValueKey('mini_flutter_map').obs;
 
   @override
   void onInit() {
     super.onInit();
     loadMarker();
+    initFlutterMap();
   }
 
   @override
@@ -36,20 +47,33 @@ final googlemapkey = const ValueKey('mini_map').obs;
   //   googlemapcontroller.value= null;
   // }
 
-  Future setGoogleLatLng(gm.LatLng latlng, {double zoom = 18}) async {
+  Future setGoogleLatLng(gm.LatLng glatlng, {double zoom = 17.5}) async {
     // โหลด marker ถ้ายังไม่พร้อม //
     if (!markerready) {
       await loadMarker();
     }
     // โหลด marker ถ้ายังไม่พร้อม //
 
-    currentlatlnggoogle.value = latlng; // อัปเดตตำแหน่งปัจจุบัน
-    setCurrentMarker(latlng); // สร้าง + ขยับ marker
+    currentlatlnggoogle.value = glatlng; // อัปเดตตำแหน่งปัจจุบัน
+    setCurrentMarker(glatlng); // สร้าง + ขยับ marker
 
+    //  Flutter (สำคัญ)
+    final f = latlng.LatLng(glatlng.latitude, glatlng.longitude);
+    currentlatlngflutter.value = f;
+    markersfluttermap
+      ..clear()
+      ..add(
+        fm.Marker(
+          point: f,
+          width: 30,
+          height: 30,
+          child: Image.asset('assets/images/sakmarker_small.png'),
+        ),
+      );
     //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว)//
     final g = googlemapcontroller.value;
     if (g != null) {
-      g.animateCamera(gm.CameraUpdate.newLatLngZoom(latlng, zoom));
+      g.animateCamera(gm.CameraUpdate.newLatLngZoom(glatlng, zoom));
     } //ขยับกล้อง (ถ้า map ถูกสร้างแล้ว)//
   }
 
@@ -59,7 +83,7 @@ final googlemapkey = const ValueKey('mini_map').obs;
     final latlng = currentlatlnggoogle.value;
     if (latlng != null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      controller.animateCamera(gm.CameraUpdate.newLatLngZoom(latlng, 18));
+      controller.animateCamera(gm.CameraUpdate.newLatLngZoom(latlng, 17.5));
     }
   }
 
@@ -84,12 +108,12 @@ final googlemapkey = const ValueKey('mini_map').obs;
   Future loadMarker() async {
     custommarker = await createResizedMarker(
       'assets/images/sakmarker_small.png',
-      width: 65, //
+      width: 55, //
     );
     markerready = true;
   }
 
-  Future<gm.BitmapDescriptor> createResizedMarker(String assetPath, {int width = 65}) async {
+  Future<gm.BitmapDescriptor> createResizedMarker(String assetPath, {int width = 55}) async {
     final data = await rootBundle.load(assetPath);
     final bytes = data.buffer.asUint8List();
 
@@ -148,6 +172,66 @@ final googlemapkey = const ValueKey('mini_map').obs;
         print('===>> refreshGoogleMap error: $error');
       }
       return false;
+    }
+  }
+
+  void setFlutterLatLng(latlng.LatLng latlng, {double zoom = 17.5}) {
+    currentlatlngflutter.value = latlng;
+
+    // อัปเดต marker
+    markersfluttermap
+      ..clear()
+      ..add(
+        fm.Marker(
+          point: latlng,
+          width: 30,
+          height: 30,
+          child: Image.asset('assets/images/sakmarker_small.png'),
+        ),
+      );
+  }
+
+  Future<bool> refreshFlutterMap({double? zoom}) async {
+    final latlng = currentlatlngflutter.value;
+    if (latlng == null) return false;
+
+    try {
+      fluttermapcontroller.move(latlng, zoom ?? fluttermapcontroller.camera.zoom);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('===>> refreshFlutterMap error: $e');
+      }
+      return false;
+    }
+  }
+
+  void syncLatLngForFlutter() {
+    final g = currentlatlnggoogle.value;
+    if (g == null) return;
+
+    final f = latlng.LatLng(g.latitude, g.longitude);
+
+    currentlatlngflutter.value = f;
+
+    markersfluttermap
+      ..clear()
+      ..add(
+        fm.Marker(
+          point: f,
+          width: 30,
+          height: 30,
+          child: Image.asset('assets/images/sakmarker_small.png'),
+        ),
+      );
+  }
+
+  void initFlutterMap() {
+    fluttermapcontroller = fm.MapController();
+    markersfluttermap.clear();
+
+    if (kDebugMode) {
+      print('===>> initFlutterMap');
     }
   }
 }

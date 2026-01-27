@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
 import 'package:sakcamera_getx/controller/user_controller.dart';
+import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingController extends GetxController {
   late UserController usercontroller;
@@ -18,6 +20,15 @@ class SettingController extends GetxController {
   void onInit() {
     super.onInit();
     usercontroller = Get.find<UserController>();
+    loadSetting();
+  }
+
+  void loadSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    switchmap.value = prefs.getBool(SharedPreferencesDatabase.switchmap) ?? true;
+
+    switchlicense.value = prefs.getBool(SharedPreferencesDatabase.switchwatermark) ?? false;
   }
 
   Future submitLogout(BuildContext context) async {

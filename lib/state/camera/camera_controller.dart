@@ -30,7 +30,8 @@ import 'package:path_provider/path_provider.dart';
 
 // Device / Sensor / Location
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:sakcamera_getx/compute/image/prepare_logo.dart';
+import 'package:sakcamera_getx/compute/processimage/prepare_logo.dart';
+import 'package:sakcamera_getx/state/camera/setting_controller.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -43,7 +44,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Project specific
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
-import 'package:sakcamera_getx/compute/image/image_process_compute.dart';
+import 'package:sakcamera_getx/compute/processimage/image_process_compute.dart';
 import 'package:sakcamera_getx/compute/processtask/process_image_compute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/controller/device_controller.dart';
@@ -147,10 +148,12 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   // ===== camera resource cache ===== //
   img.Image? imglogocache; // cache logo แบบ decode แล้ว (ลดเวลา process)
-  Uint8List? mapsnapshot; // cache map snapshot
+  Uint8List? googlemapsnapshot; // cache google map snapshot
+  Uint8List? fluttermapsnapshot; // cache flutter map snapshot
 
   Uint8List? mapbytes; // cache map snapshot bytes
   final GlobalKey infotextkey = GlobalKey(); // key สำหรับ capture widget text overlay
+  final GlobalKey fluttermapsnapshotkey = GlobalKey(); // key สำหรับ capture widget flutter map
   // ===== camera resource cache ===== //
   // ===== Camera State ===== //
 
@@ -679,7 +682,7 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       mapcontroller.setGoogleLatLng(gm.LatLng(position.latitude, position.longitude));
       // ส่งพิกัดให้ MapController //
 
-      mapsnapshot ??= await captureGoogleMapBytes();
+      googlemapsnapshot ??= await captureGoogleMapBytes();
     } catch (error) {
       if (kDebugMode) {
         print('===>> [error] openMapLocation: $error');
@@ -1100,10 +1103,62 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         print('===>> [status] บันทึกภาพดิบไปที่: ${rawfileimage.path}');
       }
 
+      // ===== FIX ORIENTATION (Front camera landscape) =====
+      // try {
+      //   final bytes = await rawfileimage.readAsBytes();
+      //   final img.Image? decoded = img.decodeImage(bytes);
+
+      //   if (decoded != null) {
+      //     img.Image fixed = decoded;
+
+      //     final isFront = cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
+
+      //     if (isFront) {
+      //       switch (rotationangle.value) {
+      //         case 1: // landscape left
+      //           fixed = img.copyRotate(decoded, angle: -90);
+      //           break;
+      //         case 3: // landscape right
+      //           fixed = img.copyRotate(decoded, angle: 90);
+      //           break;
+      //         case 2: // upside down
+      //           fixed = img.copyRotate(decoded, angle: 180);
+      //           break;
+      //         default:
+      //           break;
+      //       }
+      //     }
+
+      //     final fixedBytes = img.encodeJpg(fixed, quality: 95);
+      //     await rawfileimage.writeAsBytes(fixedBytes, flush: true);
+
+      //     if (kDebugMode) {
+      //       print('===>> [fix] orientation applied (${rotationangle.value})');
+      //     }
+      //   }
+      // } catch (e) {
+      //   if (kDebugMode) {
+      //     print('===>> [error] fix orientation: $e');
+      //   }
+      // }
+
       // --- capture map snapshot ---
 
-      mapsnapshot ??= await captureGoogleMapBytes();
-      final Uint8List? mapbytes = mapsnapshot;
+      // mapsnapshot ??= await captureGoogleMapBytes();
+      // final Uint8List? mapbytes = mapsnapshot;
+
+      Uint8List? mapbytes;
+
+      if (Get.find<SettingController>().switchmap.value) {
+        // Google Map
+        googlemapsnapshot ??= await captureGoogleMapBytes();
+        mapbytes = googlemapsnapshot;
+      } else {
+        // Flutter Map
+        fluttermapsnapshot ??= await captureFlutterMapBytes();
+        mapbytes = fluttermapsnapshot;
+      }
+
       // final Uint8List? mapbytes = await captureGoogleMapBytes();
 
       // normalize map → PNG (กัน isolate พัง)
@@ -1139,7 +1194,7 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   }
   // ===== ถ่ายภาพ ===== //
 
-  // === ถ่ายภาพ Map === //
+  // === ถ่ายภาพ Google Map === //
   Future<Uint8List?> captureGoogleMapBytes() async {
     try {
       final controller = mapcontroller.googlemapcontroller.value;
@@ -1167,7 +1222,41 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       return null;
     }
   }
-  // === ถ่ายภาพ Map === //
+  // === ถ่ายภาพ Google Map === //
+
+  // === ถ่ายภาพ Flutter Map === //
+  Future<Uint8List?> captureFlutterMapBytes() async {
+    try {
+      final context = fluttermapsnapshotkey.currentContext;
+      if (context == null) return null;
+
+      final boundary = context.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+
+      // รอ frame นิ่ง (สำคัญมาก)
+      await Future.delayed(const Duration(milliseconds: 120));
+
+      final ui.Image image = await boundary.toImage(pixelRatio: ui.window.devicePixelRatio);
+
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData == null) return null;
+
+      final bytes = byteData.buffer.asUint8List();
+
+      if (kDebugMode) {
+        print('===>> FlutterMap snapshot captured: ${bytes.length}');
+      }
+
+      return bytes;
+    } catch (error) {
+      if (kDebugMode) {
+        print('===>> [error] captureFlutterMapBytes: $error');
+      }
+      return null;
+    }
+  }
+  // === ถ่ายภาพ Flutter Map === //
 
   // === ถ่ายภาพ text === //
   Future<Uint8List> captureText(GlobalKey key) async {
@@ -1258,10 +1347,10 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
       Uint8List bytes = await file.readAsBytes();
 
-      final int angle = convertRotation(task.rotationangle ?? 0);
-
       final bool camerafront =
           cameralist[selectedcamera].lensDirection == CameraLensDirection.front;
+
+      final int angle = convertRotation(task.rotationangle ?? 0, camerafront: camerafront);
 
       final logo = imglogocache;
       if (logo == null) {
@@ -1276,7 +1365,7 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
       if (task.step <= 1) {
         bytes = await FlutterImageCompress.compressWithList(
           bytes,
-          rotate: camerafront ? 0 : angle, //กล้องหน้าไม่ rotate ที่นี่
+          rotate: angle,
           quality: 85,
           keepExif: false,
         );
@@ -1466,16 +1555,29 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  int convertRotation(int angle) {
-    switch (angle) {
-      case 1:
-        return -90; // ซ้าย
-      case 3:
-        return 90; // ขวา
-      case 2:
-        return 180; // กลับหัว
-      default:
-        return 0; // ปกติ
+  int convertRotation(int angle, {required bool camerafront}) {
+    if (camerafront) {
+      switch (angle) {
+        case 1:
+          return 90; // ซ้าย
+        case 3:
+          return -90; // ขวา
+        case 2:
+          return 180; // กลับหัว
+        default:
+          return 0; // ปกติ
+      }
+    } else {
+      switch (angle) {
+        case 1:
+          return -90; // ซ้าย
+        case 3:
+          return 90; // ขวา
+        case 2:
+          return 180; // กลับหัว
+        default:
+          return 0; // ปกติ
+      }
     }
   }
 
@@ -1777,7 +1879,13 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     required int imageW,
     required int imageH,
   }) {
-    final imagescale = imageW / previewW;
+    // final imagescale = imageW / previewW;
+
+    final bool portrait = rotationangle.value == 0 || rotationangle.value == 2;
+
+    final imagescale = portrait
+        ? imageW / previewW
+        : imageH / previewW; // หรือ previewH (ที่ถูกต้องกว่า)
 
     // final double reallogowidth = logouiwidth * imagescale;
     // final double reallogoheight = logo.height * (reallogowidth / logo.width);

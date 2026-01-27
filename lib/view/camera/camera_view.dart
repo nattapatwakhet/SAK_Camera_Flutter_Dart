@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:intl/intl.dart';
@@ -16,6 +18,7 @@ import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/state/camera/camera_controller.dart';
 import 'package:sakcamera_getx/state/camera/gallery_controller.dart';
 import 'package:sakcamera_getx/state/camera/map_controller.dart';
+import 'package:sakcamera_getx/state/camera/setting_controller.dart';
 import 'package:sakcamera_getx/util/main_util.dart';
 import 'package:sakcamera_getx/util/write_focus_util.dart';
 
@@ -156,7 +159,8 @@ class Camera extends GetWidget<CameraPageController> {
                                                 }),
 
                                                 buildWidgetLogo(context, constraints),
-                                                buildMiniMapGoogle(context, constraints),
+                                                // buildMiniMapGoogle(context, constraints),
+                                                buildMiniMap(context, constraints),
                                                 widgetInfoText(context, constraints),
                                               ],
                                             );
@@ -269,11 +273,11 @@ class Camera extends GetWidget<CameraPageController> {
             child: Container(
               color: MainConstant.transparent,
               width: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
-                  ? 220
-                  : 220,
+                  ? MainConstant.setWidth(context, constraints, 220)
+                  : MainConstant.setWidth(context, constraints, 220),
               height: controller.rotationangle.value == 0 || controller.rotationangle.value == 2
-                  ? 120
-                  : 220,
+                  ? MainConstant.setHeight(context, constraints, 120)
+                  : MainConstant.setHeight(context, constraints, 220),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -427,7 +431,7 @@ class Camera extends GetWidget<CameraPageController> {
   }
 
   //===>> AppBar <===//
-  PreferredSizeWidget widgetAppBar(BuildContext context) {
+  PreferredSizeWidget widgetAppBar(BuildContext context, BoxConstraints constraints) {
     return PreferredSize(
       preferredSize: Size.fromHeight(60),
       child: AppBar(
@@ -438,16 +442,18 @@ class Camera extends GetWidget<CameraPageController> {
             children: [
               Positioned(
                 bottom: 0,
-                left: 15,
+                left: MainConstant.setWidth(context, constraints, 15),
                 child: IconButton(
                   icon: Icon(Icons.arrow_back_ios, color: MainConstant.white),
-                  onPressed: () => Get.back(),
+                  onPressed: () {
+                    Get.back();
+                  },
                   padding: EdgeInsets.zero,
                   constraints: BoxConstraints(),
                 ),
               ),
               Positioned(
-                bottom: 6,
+                bottom: MainConstant.setHeight(context, constraints, 6),
                 left: 0,
                 right: 0,
                 child: Center(
@@ -476,7 +482,7 @@ class Camera extends GetWidget<CameraPageController> {
         return Center(
           child: Text(
             'กำลังขอสิทธิ์ใช้งานกล้อง...',
-            style: TextStyle(color: MainConstant.white, fontSize: 18),
+            style: TextStyle(color: MainConstant.white, fontSize: MainConstant.h18),
           ),
         );
       }
@@ -693,6 +699,31 @@ class Camera extends GetWidget<CameraPageController> {
   //===>> Logo <===//
 
   //===>> Map <===//
+  Widget buildMiniMap(BuildContext context, BoxConstraints constraints) {
+    final setting = Get.find<SettingController>();
+    final map = Get.find<MapController>();
+
+    return Obx(() {
+      // ==== Huawei บังคับ FlutterMap (เหมือนของเก่า) ====
+      // if (Platform.isAndroid &&
+      //     map.checkdevice?.toLowerCase() == 'huawei') {
+      //   return buildMiniMapFlutter(context, constraints);
+      // }
+
+      // ==== สลับตาม switchmap ====
+      if (setting.switchmap.value) {
+        // Google Map
+        return buildMiniMapGoogle(context, constraints);
+      } else {
+        // Flutter Map
+        return buildMiniMapFlutter(context, constraints);
+      }
+    });
+  }
+
+  //===>> Map <===//
+
+  //===>> Google Map <===//
   Widget buildMiniMapGoogle(BuildContext context, BoxConstraints constraints) {
     final c = Get.find<MapController>();
 
@@ -745,14 +776,16 @@ class Camera extends GetWidget<CameraPageController> {
           );
         },
         child: ClipRRect(
-          borderRadius: const BorderRadius.only(topRight: Radius.circular(10)),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(MainConstant.setWidth(context, constraints, 10)),
+          ),
           child: Opacity(
             opacity: 0.9,
             child: (currentlatlng == null || refreshmap)
-                ? loadingMap()
+                ? loadingMap(context, constraints)
                 : SizedBox(
-                    width: 105,
-                    height: 105,
+                    width: MainConstant.setWidth(context, constraints, 105),
+                    height: MainConstant.setWidth(context, constraints, 105),
                     child: gm.GoogleMap(
                       key: controller.mapcontroller.googlemapkey.value,
                       mapType: gm.MapType.satellite,
@@ -770,7 +803,7 @@ class Camera extends GetWidget<CameraPageController> {
                       tiltGesturesEnabled: false,
                       zoomGesturesEnabled: false,
                       liteModeEnabled: false,
-                      minMaxZoomPreference: gm.MinMaxZoomPreference(18, 18),
+                      minMaxZoomPreference: gm.MinMaxZoomPreference(17.5, 17.5),
                       onMapCreated: c.onGoogleMapCreated,
                     ),
                   ),
@@ -780,21 +813,111 @@ class Camera extends GetWidget<CameraPageController> {
     });
   }
 
-  Widget loadingMap() {
+  Widget loadingMap(BuildContext context, BoxConstraints constraints) {
     return Container(
-      width: 105,
-      height: 105,
+      width: MainConstant.setWidth(context, constraints, 105),
+      height: MainConstant.setWidth(context, constraints, 105),
       color: MainConstant.grey,
       child: Center(
         child: SizedBox(
-          width: 25,
-          height: 25,
+          width: MainConstant.setWidth(context, constraints, 25),
+          height: MainConstant.setHeight(context, constraints, 25),
           child: LoadingAnimationWidget.hexagonDots(color: MainConstant.white, size: 35),
         ),
       ),
     );
   }
-  //===>> Map <===//
+  //===>> Google Map <===//
+
+  //===>> Flutter Map <===//
+  Widget buildMiniMapFlutter(BuildContext context, BoxConstraints constraints) {
+    final c = Get.find<MapController>();
+    return Obx(() {
+      final rotationangle = c.rotationangle.value;
+      final refreshmap = c.refreshmap.value;
+      final currentlatlng = c.currentlatlngflutter.value;
+
+      double angle;
+      double? xtop;
+      double? xbottom;
+      double? yleft;
+      double? yright;
+
+      switch (rotationangle) {
+        case 1: // หมุนซ้าย
+          angle = math.pi / 2;
+          xtop = 0;
+          yleft = 0;
+          break;
+        case 3: // หมุนขวา
+          angle = -math.pi / 2;
+          xbottom = 0;
+          yright = 0;
+          break;
+        case 2: // กลับหัว
+          angle = math.pi;
+          xtop = 0;
+          yright = 0;
+          break;
+        default: // แนวตั้ง
+          angle = 0.0;
+          xbottom = 0;
+          yleft = 0;
+      }
+
+      return TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 300),
+        tween: Tween<double>(end: angle),
+        builder: (context, animAngle, child) {
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            top: xtop,
+            bottom: xbottom,
+            left: yleft,
+            right: yright,
+            child: RepaintBoundary(
+              key: controller.fluttermapsnapshotkey,
+              child: Transform.rotate(angle: animAngle, child: child),
+            ),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(MainConstant.setWidth(context, constraints, 10)),
+          ),
+          child: Opacity(
+            opacity: 0.9,
+            child: (currentlatlng == null || refreshmap)
+                ? loadingMap(context, constraints)
+                : SizedBox(
+                    width: MainConstant.setWidth(context, constraints, 105),
+                    height: MainConstant.setWidth(context, constraints, 105),
+                    child: fm.FlutterMap(
+                      key: controller.mapcontroller.fluttermapkey.value,
+                      mapController: c.fluttermapcontroller,
+                      options: fm.MapOptions(
+                        initialCenter: currentlatlng,
+                        initialZoom: 17.5,
+                        interactionOptions: const fm.InteractionOptions(
+                          flags: fm.InteractiveFlag.none,
+                        ),
+                      ),
+                      children: [
+                        fm.TileLayer(
+                          urlTemplate:
+                              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                          userAgentPackageName: 'com.saksiamleasing.sakcamera',
+                        ),
+                        fm.MarkerLayer(markers: c.markersfluttermap),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+      );
+    });
+  }
+  //===>> Flutter Map <===//
 
   //===>> Flash <===//
   Widget buildWidgetSetButtons(BuildContext context, BoxConstraints constraints) {
