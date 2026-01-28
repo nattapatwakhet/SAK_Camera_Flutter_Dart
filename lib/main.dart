@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:sakcamera_getx/compute/internetchecker_comepute.dart';
+import 'package:sakcamera_getx/compute/internetchecker_compute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/constant/main_translation_constant.dart';
 import 'package:sakcamera_getx/controller/device_controller.dart';

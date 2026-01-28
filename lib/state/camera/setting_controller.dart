@@ -17,11 +17,14 @@ class SettingController extends GetxController {
   bool layoutready = false; // true เมื่อ layout พร้อม (ใช้ก่อน takePicture)
 
   RxBool switchmap = false.obs; // สลับแผนที่
-  RxBool switchlicense = false.obs; // แนบลายน้ำ
+  RxBool switchwatermark = false.obs; // แนบลายน้ำ
 
   RxBool switchingmap = false.obs; // กันกดสวิตแมพรัว
 
   final huaweibrand = false.obs; //เช็ค device huawei
+
+  RxBool statusgms = true.obs;  //เช็ค สถานะ gms
+
 
   @override
   void onInit() {
@@ -33,10 +36,31 @@ class SettingController extends GetxController {
 
   Future checkDevice() async {
     final brand = await CheckDevice.checkDeviceBrand();
+
+    // === ไม่ใช่ Huawei → ปล่อยผ่านทั้งหมด ===
+    if (brand != 'huawei') {
+      return;
+    }
+
     if (brand == 'huawei') {
+      final hasgms = await CheckDevice.hasGoogleMobileServices();
+
       huaweibrand.value = true;
-      if (kDebugMode) {
-        print('===>> Huawei detected → force FlutterMap');
+      statusgms.value = hasgms;
+
+      if (!hasgms) {
+        // Huawei ไม่มี GMS → บังคับ FlutterMap
+        switchmap.value = false;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(SharedPreferencesDatabase.switchmap, false);
+        if (kDebugMode) {
+          print('===>> Huawei (no GMS) → force FlutterMap');
+        }
+      } else {
+        if (kDebugMode) {
+          print('===>> Huawei (with GMS) → Google Map allowed');
+        }
       }
     }
   }
@@ -46,7 +70,7 @@ class SettingController extends GetxController {
 
     switchmap.value = prefs.getBool(SharedPreferencesDatabase.switchmap) ?? true;
 
-    switchlicense.value = prefs.getBool(SharedPreferencesDatabase.switchwatermark) ?? false;
+    switchwatermark.value = prefs.getBool(SharedPreferencesDatabase.switchwatermark) ?? false;
   }
 
   Future submitLogout(BuildContext context) async {

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sakcamera_getx/component/main_flushbar_component.dart';
-import 'package:sakcamera_getx/compute/internetchecker_comepute.dart';
+import 'package:sakcamera_getx/compute/internetchecker_compute.dart';
 import 'package:sakcamera_getx/compute/checkdevice_compute.dart';
 import 'package:sakcamera_getx/compute/checkversion_compute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';

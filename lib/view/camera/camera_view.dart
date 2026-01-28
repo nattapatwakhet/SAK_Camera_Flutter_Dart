@@ -704,8 +704,10 @@ class Camera extends GetWidget<CameraPageController> {
     final mapcontroller = Get.find<MapController>();
 
     return Obx(() {
-      // ==== Huawei บังคับ FlutterMap (เหมือนของเก่า) ====
-      if (Platform.isAndroid && mapcontroller.huaweibrand.value) {
+      // === Huawei + NO GMS → บังคับ FlutterMap ===
+      if (Platform.isAndroid &&
+          settingcontroller.huaweibrand.value &&
+          !settingcontroller.statusgms.value) {
         return buildMiniMapFlutter(context, constraints);
       }
 

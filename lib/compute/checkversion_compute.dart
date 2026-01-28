@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:sakcamera_getx/component/main_dialog_component.dart';
-import 'package:sakcamera_getx/compute/internetchecker_comepute.dart';
+import 'package:sakcamera_getx/compute/internetchecker_compute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
 import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
 import 'package:sakcamera_getx/service/app/service_app.dart';

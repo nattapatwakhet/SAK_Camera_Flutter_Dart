@@ -13,6 +13,7 @@ import 'dart:ui' as ui;
 // Flutter
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
@@ -148,6 +149,8 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
 
   // ===== camera resource cache ===== //
   img.Image? imglogocache; // cache logo แบบ decode แล้ว (ลดเวลา process)
+  img.Image? watermarkCache; //cache ลายน้ำ
+
   Uint8List? googlemapsnapshot; // cache google map snapshot
   Uint8List? fluttermapsnapshot; // cache flutter map snapshot
 
@@ -188,6 +191,8 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
   PreparedOverlay? preparetext;
 
   PreparedOverlay? emptybase;
+
+  PreparedOverlay? preparewatermark;
 
   int lastorientationgroup = -1;
   // 0 = portrait (rotation 0,2)
@@ -1426,6 +1431,22 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
         }
       }
 
+      final enableswitchwatermark = Get.find<SettingController>().switchwatermark.value;
+
+      if (enableswitchwatermark) {
+        final wm = await preloadWatermark();
+        if (wm != null) {
+          preparewatermark = prepareWatermarkForImage(
+            watermark: wm,
+            previewW: previewwidth,
+            imageW: imagepreviewwidth,
+            imageH: imagepreviewheight,
+          );
+        }
+      } else {
+        preparewatermark = null;
+      }
+
       stopwatch2.stop();
       if (kDebugMode) {
         print("===>> Process xy: ${stopwatch2.elapsedMilliseconds} ms");
@@ -1476,6 +1497,7 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
                 : preparelanscapemap,
             text: preparetext,
             emptybase: emptybase,
+            watermark: preparewatermark,
           ),
         );
 
@@ -2027,5 +2049,85 @@ class CameraPageController extends GetxController with WidgetsBindingObserver {
     y = y.clamp(0, imageH - resize.height);
 
     return PreparedOverlay(image: resize, x: x, y: y);
+  }
+
+  Future<img.Image?> buildSingleLineWatermark(
+    String text, {
+    double fontSize = 200, // ขนาดฐาน
+    double padding = 40,
+  }) async {
+    final recorder = ui.PictureRecorder();
+
+    final textStyle = material.TextStyle(
+      fontFamily: 'Sukhumvit',
+      fontSize: fontSize,
+      fontWeight: material.FontWeight.w600,
+      color: material.Colors.white.withValues(alpha: 0.45),
+    );
+
+    final painter = material.TextPainter(
+      text: material.TextSpan(text: text, style: textStyle),
+      textDirection: material.TextDirection.ltr,
+    )..layout();
+
+    final width = painter.width + padding * 2;
+    final height = painter.height + padding * 2;
+
+    final canvas = ui.Canvas(recorder, ui.Rect.fromLTWH(0, 0, width, height));
+    painter.paint(canvas, ui.Offset(padding, padding));
+
+    final uiImage = await recorder.endRecording().toImage(width.toInt(), height.toInt());
+
+    final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return null;
+
+    return img.decodeImage(byteData.buffer.asUint8List());
+  }
+
+  Future<img.Image?> preloadWatermark() async {
+    if (watermarkCache != null) return watermarkCache;
+
+    final wm = await buildSingleLineWatermark(
+      'ใช้ทำธุรกรรมกับ บมจ.ศักดิ์สยาม เท่านั้น',
+      fontSize: 200,
+    );
+
+    if (wm != null) {
+      watermarkCache = img.copyRotate(
+        wm,
+        angle: -45, //ต้องระบุชื่อ parameter
+      );
+    }
+    return watermarkCache;
+  }
+
+  PreparedOverlay prepareWatermarkForImage({
+    required img.Image watermark,
+    required double previewW,
+    required int imageW,
+    required int imageH,
+    double portraitRatio = 0.75, // ขนาดลายน้ำแนวตั้งกินจอเป็น %
+    double landscapeRatio = 0.65, // ขนาดลายน้ำแนวนอนกินจอเป็น %
+  }) {
+    final bool landscape = imageW > imageH;
+    final double uiratio = landscape ? landscapeRatio : portraitRatio;
+
+    final double imagescale = imageW / previewW;
+
+    final double targetwidth = previewW * uiratio * imagescale;
+
+    final double scale = targetwidth / watermark.width;
+
+    final img.Image resized = img.copyResize(
+      watermark,
+      width: (watermark.width * scale).round(),
+      height: (watermark.height * scale).round(),
+      interpolation: img.Interpolation.linear,
+    );
+
+    final int x = (imageW - resized.width) ~/ 2;
+    final int y = (imageH - resized.height) ~/ 2;
+
+    return PreparedOverlay(image: resized, x: x, y: y);
   }
 }

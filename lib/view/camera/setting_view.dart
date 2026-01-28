@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:get/get.dart';
+import 'package:sakcamera_getx/component/main_dialog_component.dart';
 import 'package:sakcamera_getx/component/main_form_component.dart';
+import 'package:sakcamera_getx/compute/setting_reset_compute.dart';
 import 'package:sakcamera_getx/constant/main_constant.dart';
+import 'package:sakcamera_getx/controller/user_controller.dart';
 import 'package:sakcamera_getx/database/shared_preferences/shared_preferences_database.dart';
 import 'package:sakcamera_getx/state/camera/camera_controller.dart';
 import 'package:sakcamera_getx/state/camera/map_controller.dart';
@@ -269,7 +272,7 @@ class Setting extends GetWidget<SettingController> {
                                                               final mapcontroller =
                                                                   Get.find<MapController>();
 
-mapcontroller.disposeGoogleMap();
+                                                              mapcontroller.disposeGoogleMap();
 
                                                               if (!value) {
                                                                 // สลับมา FlutterMap
@@ -355,7 +358,7 @@ mapcontroller.disposeGoogleMap();
                                                             ),
                                                             // toggleSize: 30.0,
                                                             // borderRadius: 30.0,
-                                                            value: controller.switchlicense.value,
+                                                            value: controller.switchwatermark.value,
                                                             showOnOff: true,
                                                             activeText: 'on'.tr,
                                                             inactiveText: 'off'.tr,
@@ -366,7 +369,7 @@ mapcontroller.disposeGoogleMap();
                                                             activeTextColor: MainConstant.white,
                                                             inactiveTextColor: MainConstant.white,
                                                             onToggle: (value) async {
-                                                              controller.switchlicense.value =
+                                                              controller.switchwatermark.value =
                                                                   value;
                                                               if (kDebugMode) {
                                                                 print(
@@ -376,10 +379,20 @@ mapcontroller.disposeGoogleMap();
 
                                                               final prefs =
                                                                   await SharedPreferences.getInstance();
-                                                              // await prefs.setBool(
-                                                              //   SharedPreferencesDatabase.switchlicense,
-                                                              //   value,
-                                                              // ); // true = แปะลายน้ำ
+                                                              await prefs.setBool(
+                                                                SharedPreferencesDatabase
+                                                                    .switchwatermark,
+                                                                value,
+                                                              ); // true = แปะลายน้ำ
+                                                              final cameracontroller =
+                                                                  Get.find<CameraPageController>();
+
+                                                              if (!value) {
+                                                                cameracontroller.preparewatermark =
+                                                                    null; // ล้าง overlay
+                                                                cameracontroller.watermarkCache =
+                                                                    null; // (optional) ล้าง image cache
+                                                              }
                                                             },
                                                           ),
                                                         ),
@@ -388,122 +401,9 @@ mapcontroller.disposeGoogleMap();
                                                   );
                                                 }),
 
-                                                Container(
-                                                  margin: EdgeInsets.only(
-                                                    top: MainConstant.setWidth(
-                                                      context,
-                                                      constraints,
-                                                      35,
-                                                    ),
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: MainConstant.transparent,
-                                                  ),
-                                                  child: MainComponet.mainButton(
-                                                    context,
-                                                    constraints,
-                                                    margin: EdgeInsets.only(
-                                                      top: MainConstant.setHeight(
-                                                        context,
-                                                        constraints,
-                                                        0,
-                                                      ),
-                                                      bottom: MainConstant.setHeight(
-                                                        context,
-                                                        constraints,
-                                                        0,
-                                                      ),
-                                                    ),
-                                                    width: MainConstant.setWidth(
-                                                      context,
-                                                      constraints,
-                                                      350,
-                                                    ),
-                                                    height: MainConstant.setHeight(
-                                                      context,
-                                                      constraints,
-                                                      40,
-                                                    ),
-                                                    onPressed: () async {
-                                                      //ไปหน้า check version
-                                                      Get.toNamed('version');
-                                                    },
-                                                    backgroundcolor: MainConstant.primary,
-                                                    foregroundcolor: MainConstant.white,
-
-                                                    // ===> ส่วน text ในปุ่ม <=== //
-                                                    child: MainUtil.mainText(
-                                                      context,
-                                                      constraints,
-                                                      text: 'name_version'.tr,
-                                                      textstyle: MainUtil.mainTextStyle(
-                                                        context,
-                                                        constraints,
-                                                        fontsize: MainConstant.h18,
-                                                        fontweight: MainConstant.boldfontweight,
-                                                        fontcolor: MainConstant.white,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Container(
-                                                  margin: EdgeInsets.only(
-                                                    top: MainConstant.setWidth(
-                                                      context,
-                                                      constraints,
-                                                      10,
-                                                    ),
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: MainConstant.transparent,
-                                                  ),
-                                                  child: MainComponet.mainButton(
-                                                    context,
-                                                    constraints,
-                                                    margin: EdgeInsets.only(
-                                                      top: MainConstant.setHeight(
-                                                        context,
-                                                        constraints,
-                                                        0,
-                                                      ),
-                                                      bottom: MainConstant.setHeight(
-                                                        context,
-                                                        constraints,
-                                                        0,
-                                                      ),
-                                                    ),
-                                                    width: MainConstant.setWidth(
-                                                      context,
-                                                      constraints,
-                                                      350,
-                                                    ),
-                                                    height: MainConstant.setHeight(
-                                                      context,
-                                                      constraints,
-                                                      40,
-                                                    ),
-                                                    onPressed: () async {
-                                                      // ออกจากระบบไปหน้า login
-                                                      controller.submitLogout(context);
-                                                    },
-                                                    backgroundcolor: MainConstant.primary,
-                                                    foregroundcolor: MainConstant.white,
-
-                                                    // ===> ส่วน text ในปุ่ม <=== //
-                                                    child: MainUtil.mainText(
-                                                      context,
-                                                      constraints,
-                                                      text: 'logout'.tr,
-                                                      textstyle: MainUtil.mainTextStyle(
-                                                        context,
-                                                        constraints,
-                                                        fontsize: MainConstant.h18,
-                                                        fontweight: MainConstant.boldfontweight,
-                                                        fontcolor: MainConstant.white,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
+                                                widgetButtonCheckVersions(context, constraints),
+                                                widgetButtonResetSetting(context, constraints),
+                                                widgetButtonLogout(context, constraints),
                                               ],
                                             ),
                                           ),
@@ -541,6 +441,146 @@ mapcontroller.disposeGoogleMap();
           ),
         );
       },
+    );
+  }
+
+  Container widgetButtonLogout(BuildContext context, BoxConstraints constraints) {
+    return Container(
+      margin: EdgeInsets.only(top: MainConstant.setWidth(context, constraints, 10)),
+      decoration: BoxDecoration(color: MainConstant.transparent),
+      child: MainComponet.mainButton(
+        context,
+        constraints,
+        margin: EdgeInsets.only(
+          top: MainConstant.setHeight(context, constraints, 0),
+          bottom: MainConstant.setHeight(context, constraints, 0),
+        ),
+        width: MainConstant.setWidth(context, constraints, 350),
+        height: MainConstant.setHeight(context, constraints, 40),
+        onPressed: () async {
+          // ออกจากระบบไปหน้า login
+          controller.submitLogout(context);
+        },
+        backgroundcolor: MainConstant.primary,
+        foregroundcolor: MainConstant.white,
+
+        // ===> ส่วน text ในปุ่ม <=== //
+        child: MainUtil.mainText(
+          context,
+          constraints,
+          text: 'logout'.tr,
+          textstyle: MainUtil.mainTextStyle(
+            context,
+            constraints,
+            fontsize: MainConstant.h18,
+            fontweight: MainConstant.boldfontweight,
+            fontcolor: MainConstant.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Container widgetButtonResetSetting(BuildContext context, BoxConstraints constraints) {
+    return Container(
+      margin: EdgeInsets.only(top: MainConstant.setWidth(context, constraints, 10)),
+      decoration: BoxDecoration(color: MainConstant.transparent),
+      child: MainComponet.mainButton(
+        context,
+        constraints,
+        margin: EdgeInsets.only(
+          top: MainConstant.setHeight(context, constraints, 0),
+          bottom: MainConstant.setHeight(context, constraints, 0),
+        ),
+        width: MainConstant.setWidth(context, constraints, 350),
+        height: MainConstant.setHeight(context, constraints, 40),
+        onPressed: () async {
+          final confirm = await MainDialog.dialogPopup(
+            context,
+            true,
+            'รีเซ็ตข้อมูล',
+            message:
+                'ระบบจะล้างข้อมูลเดิมและดึงข้อมูลใหม่จากเซิร์ฟเวอร์\nต้องการดำเนินการต่อหรือไม่',
+            confirmbutton: 'ตกลง',
+            closebutton: 'ยกเลิก',
+          );
+
+          if (confirm == true) {
+            final usercontroller = Get.find<UserController>();
+
+            await SettingReset.resetToDefault(
+              usercontroller: usercontroller,
+              settingcontroller: controller,
+              huaweibrand: controller.huaweibrand.value,
+              statusgms: controller.statusgms.value,
+            );
+
+            if (kDebugMode) {
+              print('===>> User triggered reset & refresh');
+            }
+
+            await MainDialog.dialogPopup(
+              context,
+              true,
+              'สำเร็จ',
+              message: 'รีเซ็ตข้อมูลเรียบร้อยแล้ว',
+            );
+          }
+        },
+        backgroundcolor: MainConstant.primary,
+        foregroundcolor: MainConstant.white,
+
+        // ===> ส่วน text ในปุ่ม <=== //
+        child: MainUtil.mainText(
+          context,
+          constraints,
+          text: 'clear_setting'.tr,
+          textstyle: MainUtil.mainTextStyle(
+            context,
+            constraints,
+            fontsize: MainConstant.h18,
+            fontweight: MainConstant.boldfontweight,
+            fontcolor: MainConstant.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Container widgetButtonCheckVersions(BuildContext context, BoxConstraints constraints) {
+    return Container(
+      margin: EdgeInsets.only(top: MainConstant.setWidth(context, constraints, 35)),
+      decoration: BoxDecoration(color: MainConstant.transparent),
+      child: MainComponet.mainButton(
+        context,
+        constraints,
+        margin: EdgeInsets.only(
+          top: MainConstant.setHeight(context, constraints, 0),
+          bottom: MainConstant.setHeight(context, constraints, 0),
+        ),
+        width: MainConstant.setWidth(context, constraints, 350),
+        height: MainConstant.setHeight(context, constraints, 40),
+        onPressed: () async {
+          //ไปหน้า check version
+          Get.toNamed('version');
+        },
+        backgroundcolor: MainConstant.primary,
+        foregroundcolor: MainConstant.white,
+
+        // ===> ส่วน text ในปุ่ม <=== //
+        child: MainUtil.mainText(
+          context,
+          constraints,
+          text: 'name_version'.tr,
+          textstyle: MainUtil.mainTextStyle(
+            context,
+            constraints,
+            fontsize: MainConstant.h18,
+            fontweight: MainConstant.boldfontweight,
+            fontcolor: MainConstant.white,
+          ),
+        ),
+      ),
     );
   }
 

@@ -49,11 +49,6 @@ class MapController extends GetxController {
     super.onClose();
   }
 
-  // void rebuildMapView(){
-  //   googlemapkey.value =UniqueKey();
-  //   googlemapcontroller.value= null;
-  // }
-
   Future checkDevice() async {
     final brand = await CheckDevice.checkDeviceBrand();
     if (brand == 'huawei') {

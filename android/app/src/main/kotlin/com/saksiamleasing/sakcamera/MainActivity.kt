@@ -8,11 +8,16 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
+//Check Google Service
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.common.ConnectionResult
+
 // class MainActivity : FlutterActivity()
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "app.channel.shared.data"
     private val CHANNEL_MEDIA_SCAN = "com.sakcamera.media_scan"
+    private val CHANNEL_GMS = "com.sakcamera.check_gms"
 
     // override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
     //     super.onActivityResult(requestCode, resultCode, data)
@@ -54,7 +59,22 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+
+            // ===== เพิ่มใหม่ (เช็ค Google Mobile Services) =====
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_GMS)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "hasGms") {
+                    val status = GoogleApiAvailability.getInstance()
+                        .isGooglePlayServicesAvailable(this)
+
+                    result.success(status == ConnectionResult.SUCCESS)
+                } else {
+                    result.notImplemented()
+                }
+            }
     }
+
+      
 
     // share file
     // override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine)

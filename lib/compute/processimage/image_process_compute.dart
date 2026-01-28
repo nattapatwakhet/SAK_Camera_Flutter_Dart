@@ -12,6 +12,7 @@ class ImageProcessPayload {
   final PreparedOverlay? map;
   final PreparedOverlay? text;
   final PreparedOverlay? emptybase;
+  final PreparedOverlay? watermark;
 
   ImageProcessPayload({
     required this.bytes,
@@ -20,6 +21,7 @@ class ImageProcessPayload {
     this.map,
     this.text,
     this.emptybase,
+    this.watermark,
   });
 }
 
@@ -94,15 +96,26 @@ Future<Uint8List> processImageIsolate(ImageProcessPayload payload) async {
     img.compositeImage(base, overlay.image, dstX: x, dstY: y, blend: img.BlendMode.alpha);
   }
 
+  // ===== draw logo =====
   if (payload.logo != null) {
     draw(payload.logo);
   }
+
+  // ===== draw map =====
   if (payload.map != null) {
     draw(payload.map);
   }
+
+  // ===== draw text =====
   if (payload.text != null) {
     draw(payload.text);
   }
+
+  // ===== draw watermark =====
+  if (payload.watermark != null) {
+    draw(payload.watermark);
+  }
+
   // if (payload.emptybase != null) {
   //   draw(payload.emptybase);
   // }

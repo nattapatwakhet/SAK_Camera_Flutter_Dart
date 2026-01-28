@@ -50,6 +50,7 @@ class TranslationService extends Translations {
       'huawei_store': 'เปิด AppGallery',
 
       'setting': 'ตั้งค่า',
+      'clear_setting': 'รีเซ็ตข้อมูล',
 
       //===>> Section Checkversion <===//
 
@@ -88,7 +89,7 @@ class TranslationService extends Translations {
 
       //===>> Section switch <===//
       'switch_map': 'เปิดใช้งาน Google Map:',
-      'switch_watermark': 'ลายน้ำ',
+      'switch_watermark': 'ลายน้ำ:',
       //===>> Section switch <===//
 
       //===>> Section Warning <===//
@@ -151,8 +152,8 @@ class TranslationService extends Translations {
       'ios_store': 'Go to App Store',
       'huawei_store': 'Go to AppGallery',
 
-       'setting': 'Setting',
-
+      'setting': 'Setting',
+      'clear_setting': 'Reset Data',
       //===>> Section Checkversion <===//
 
       //===>> Section ขอสิทธิ์ <===//
